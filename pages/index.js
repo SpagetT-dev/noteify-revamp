@@ -36,7 +36,7 @@ export default function Home() {
   };
 
   const handleStartForFree = () => {
-    router.push("/ai");
+    router.push("/");
   };
 
   return (
