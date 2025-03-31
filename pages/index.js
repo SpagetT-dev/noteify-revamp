@@ -1,257 +1,446 @@
-// pages/index.js
-import { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import Link from 'next/link';
-import ReactQuill from 'react-quill';
-import 'react-quill/dist/quill.snow.css';
-import useNotes from '../hooks/useNotes';
+import Head from "next/head";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/router";
+import { motion } from "framer-motion";
 
 export default function Home() {
-  const { notes, folders, createNote, deleteNote, fetchNotes, updateNote } = useNotes();
-  const [isDarkMode, setIsDarkMode] = useState(true);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [selectedNote, setSelectedNote] = useState(null);
+  const [theme, setTheme] = useState("dark"); // Default to dark
+  const router = useRouter();
 
+  // Apply theme and persist it
   useEffect(() => {
-    fetchNotes();
-  }, [fetchNotes]);
+    // On initial load, check localStorage for saved theme
+    const savedTheme = localStorage.getItem("theme");
+    if (savedTheme && savedTheme !== theme) {
+      setTheme(savedTheme);
+    } else {
+      // Apply the current theme to the document
+      document.documentElement.classList.remove("light", "dark");
+      document.documentElement.classList.add(theme);
+      localStorage.setItem("theme", theme);
+    }
+  }, [theme]);
 
-  // Sidebar Component
-  const Sidebar = () => (
-    <motion.div
-      className="bg-gradient-to-b from-gray-900 to-gray-800 text-gray-200 p-6 shadow-2xl h-full fixed top-0 left-0 z-20 transition-all duration-300"
-      initial={{ x: -250 }}
-      animate={{ x: isSidebarOpen ? 0 : -250 }}
-    >
-      <h2 className="text-2xl font-bold mb-6 text-white">Folders</h2>
-      <ul className="space-y-4">
-        {folders.map((folder) => (
-          <motion.li
-            key={folder.id}
-            whileHover={{ x: 5, color: '#60a5fa' }}
-            className="text-lg cursor-pointer hover:bg-gray-700 p-2 rounded-lg transition-all duration-200"
-          >
-            {folder.name}
-          </motion.li>
-        ))}
-      </ul>
-      <div className="mt-6">
-        <h3 className="text-xl font-semibold mb-4 text-white">Tags</h3>
-        <div className="flex flex-wrap gap-2">
-          <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">Work</span>
-          <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">Personal</span>
-        </div>
-      </div>
-      <motion.button
-        whileHover={{ scale: 1.05, backgroundColor: '#3b82f6' }}
-        whileTap={{ scale: 0.95 }}
-        onClick={() => setIsSidebarOpen(false)}
-        className="mt-8 w-full bg-blue-600 text-white py-2 rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
-      >
-        Hide Sidebar
-      </motion.button>
-    </motion.div>
-  );
-
-  // Navbar Component
-  const Navbar = () => (
-    <motion.nav
-      initial={{ y: -100 }}
-      animate={{ y: 0 }}
-      className="bg-gray-800 text-gray-200 shadow-lg p-4 fixed w-full z-30"
-    >
-      <div className="flex justify-between items-center max-w-7xl mx-auto">
-        <h1 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-600">
-          NotesApp
-        </h1>
-        <div className="flex space-x-6 items-center">
-          <a href="#notes" className="text-lg hover:text-blue-400 transition-colors duration-200">Notes</a>
-          <a href="#folders" className="text-lg hover:text-blue-400 transition-colors duration-200">Folders</a>
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => setIsDarkMode(!isDarkMode)}
-            className="bg-gray-700 px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors duration-200 text-sm"
-          >
-            {isDarkMode ? 'Light Mode' : 'Dark Mode'}
-          </motion.button>
-        </div>
-      </div>
-    </motion.nav>
-  );
-
-  // NoteCard Component
-  const NoteCard = ({ note, onDelete }) => {
-    const [isHovered, setIsHovered] = useState(false);
-    return (
-      <motion.div
-        whileHover={{ scale: 1.03, boxShadow: '0 10px 20px rgba(0,0,0,0.3)' }}
-        className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-md border border-gray-200 dark:border-gray-700"
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
-      >
-        <Link href={`/note/${note.id}`}>
-          <div className="space-y-3">
-            <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">{note.title}</h3>
-            <p className="text-gray-600 dark:text-gray-400 line-clamp-2">{note.content}</p>
-            <div className="flex flex-wrap gap-2">
-              {note.tags.map((tag) => (
-                <span key={tag} className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-3 py-1 rounded-full text-sm font-medium">
-                  {tag}
-                </span>
-              ))}
-            </div>
-          </div>
-        </Link>
-        {isHovered && (
-          <motion.button
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
-            onClick={() => onDelete(note.id)}
-            className="absolute top-4 right-4 bg-red-500 text-white p-2 rounded-full hover:bg-red-600 transition-all duration-200"
-          >
-            ×
-          </motion.button>
-        )}
-      </motion.div>
-    );
+  // Toggle theme function
+  const toggleTheme = () => {
+    setTheme((prevTheme) => (prevTheme === "dark" ? "light" : "dark"));
   };
 
-  // NoteEditor Component
-  const NoteEditor = ({ note, onSave }) => {
-    const [content, setContent] = useState(note?.content || '');
+  const fadeInUp = {
+    hidden: { opacity: 0, y: 40 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.8, ease: [0.25, 0.1, 0.25, 1] } },
+  };
 
-    const modules = {
-      toolbar: [
-        [{ header: [1, 2, false] }],
-        ['bold', 'italic', 'underline', 'strike'],
-        [{ color: [] }, { background: [] }],
-        [{ list: 'ordered' }, { list: 'bullet' }],
-        ['link', 'image'],
-      ],
-    };
+  const stagger = {
+    visible: { transition: { staggerChildren: 0.2 } },
+  };
 
-    const formats = [
-      'header', 'bold', 'italic', 'underline', 'strike', 'color', 'background',
-      'list', 'bullet', 'link', 'image',
-    ];
-
-    const handleSave = () => {
-      if (note) {
-        onSave(note.id, { ...note, content, updatedAt: new Date() });
-      } else {
-        createNote({ title: 'New Note', content, tags: [], isFavorite: false });
-      }
-      setSelectedNote(null);
-    };
-
-    return (
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -20 }}
-        className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-2xl max-w-3xl mx-auto my-8 border border-gray-200 dark:border-gray-700"
-      >
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">
-          {note ? 'Edit Note' : 'New Note'}
-        </h2>
-        <ReactQuill
-          value={content}
-          onChange={setContent}
-          modules={modules}
-          formats={formats}
-          className="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 mb-4"
-        />
-        <div className="flex justify-end space-x-4">
-          <motion.button
-            whileHover={{ scale: 1.05, backgroundColor: '#ef4444' }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => setSelectedNote(null)}
-            className="bg-red-500 text-white px-4 py-2 rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
-          >
-            Cancel
-          </motion.button>
-          <motion.button
-            whileHover={{ scale: 1.05, backgroundColor: '#3b82f6' }}
-            whileTap={{ scale: 0.95 }}
-            onClick={handleSave}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
-          >
-            Save
-          </motion.button>
-        </div>
-      </motion.div>
-    );
+  const handleStartForFree = () => {
+    router.push("/ai");
   };
 
   return (
-    <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900 text-gray-100' : 'bg-gray-50 text-gray-900'} transition-colors duration-500 ease-in-out`}>
-      {/* Navbar */}
-      <Navbar />
+    <div className={`min-h-screen transition-colors duration-500`}>
+      <Head>
+        <title>Noteify - Timeless Productivity</title>
+        <meta name="description" content="A workspace of unparalleled clarity and elegance." />
+        <link rel="icon" href="/favicon.ico" />
+      </Head>
 
-      {/* Main Content */}
-      <div className="flex pt-16 h-screen overflow-hidden">
-        {/* Sidebar Toggle Button */}
-        {!isSidebarOpen && (
-          <motion.button
-            whileHover={{ scale: 1.1, backgroundColor: '#3b82f6' }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => setIsSidebarOpen(true)}
-            className="fixed top-1/2 left-4 bg-blue-600 text-white p-3 rounded-full shadow-lg z-10"
+      {/* Header */}
+      <motion.header
+        initial={{ y: -100 }}
+        animate={{ y: 0 }}
+        transition={{ duration: 0.8, ease: [0.25, 0.1, 0.25, 1] }}
+        className="fixed top-0 left-0 right-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-lg py-4 px-6 z-50 shadow-sm"
+      >
+        <div className="max-w-7xl mx-auto flex justify-between items-center">
+          <motion.h1
+            whileHover={{ scale: 1.05 }}
+            className="text-2xl font-semibold text-gray-900 dark:text-white"
           >
-            <span className="text-2xl">☰</span>
-          </motion.button>
-        )}
+            Noteify
+          </motion.h1>
+          <nav className="flex items-center space-x-8">
+            {["About", "Features", "Pricing"].map((item) => (
+              <motion.a
+                key={item}
+                href={`#${item.toLowerCase()}`}
+                whileHover={{ scale: 1.05, color: theme === "dark" ? "#A3A3A3" : "#6B7280" }}
+                className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors duration-300"
+              >
+                {item}
+              </motion.a>
+            ))}
+            <motion.button
+              whileHover={{ scale: 1.1, rotate: 180 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={toggleTheme}
+              className="p-2 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-500"
+            >
+              {theme === "dark" ? "☀️" : "🌙"}
+            </motion.button>
+          </nav>
+        </div>
+      </motion.header>
 
-        {/* Sidebar */}
-        <AnimatePresence>
-          {isSidebarOpen && <Sidebar />}
-        </AnimatePresence>
-
-        {/* Main Area */}
-        <main className={`flex-1 p-8 ml-0 ${isSidebarOpen ? 'lg:ml-64' : 'ml-0'} overflow-y-auto transition-all duration-300`}>
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.8, ease: 'easeOut' }}
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-7xl mx-auto"
+      {/* Hero Section */}
+      <section id="hero" className="min-h-screen flex items-center justify-center px-6 bg-white dark:bg-gray-900">
+        <motion.div
+          initial="hidden"
+          animate="visible"
+          variants={stagger}
+          className="max-w-4xl text-center"
+        >
+          <motion.h2
+            variants={fadeInUp}
+            className="text-4xl md:text-6xl font-bold text-gray-900 dark:text-white mb-6 tracking-tight"
           >
-            <AnimatePresence>
-              {notes.map((note) => (
-                <motion.div
-                  key={note.id}
-                  initial={{ opacity: 0, y: 50 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -50 }}
-                  transition={{ duration: 0.5, ease: 'easeOut' }}
-                >
-                  <NoteCard note={note} onDelete={deleteNote} />
-                </motion.div>
-              ))}
-            </AnimatePresence>
+            Timeless Productivity
+          </motion.h2>
+          <motion.p
+            variants={fadeInUp}
+            className="text-lg md:text-xl text-gray-600 dark:text-gray-400 mb-10 max-w-2xl mx-auto"
+          >
+            Noteify brings clarity to your chaos—where notes, tasks, and ideas unite in a workspace designed for focus and elegance.
+          </motion.p>
+          <motion.div variants={fadeInUp} className="flex justify-center gap-4">
+            <motion.button
+              whileHover={{ scale: 1.05, boxShadow: "0 10px 20px rgba(0, 0, 0, 0.1)" }}
+              whileTap={{ scale: 0.95 }}
+              onClick={handleStartForFree}
+              className="bg-gray-900 dark:bg-gray-800 text-white px-6 py-3 rounded-md font-medium hover:bg-gray-800 dark:hover:bg-gray-700 transition-all duration-300"
+            >
+              Start for Free
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-200 px-6 py-3 rounded-md font-medium hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-300"
+            >
+              Learn More
+            </motion.button>
           </motion.div>
+        </motion.div>
+      </section>
 
-          {/* New Note Button */}
-          <motion.button
-            whileHover={{ scale: 1.1, rotate: 10, backgroundColor: '#3b82f6' }}
-            whileTap={{ scale: 0.9 }}
-            onClick={() => setSelectedNote({ id: crypto.randomUUID(), title: 'New Note', content: '', tags: [], isFavorite: false })}
-            className="fixed bottom-8 right-8 bg-blue-600 text-white p-4 rounded-full shadow-2xl hover:shadow-xl transition-all duration-300"
+      {/* About Section */}
+      <section id="about" className="py-24 px-6 bg-gray-50 dark:bg-gray-950">
+        <motion.div
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true }}
+          variants={stagger}
+          className="max-w-4xl mx-auto text-center"
+        >
+          <motion.h3 variants={fadeInUp} className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-6">
+            About Noteify
+          </motion.h3>
+          <motion.p variants={fadeInUp} className="text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto mb-8">
+            Noteify redefines productivity with a minimalist, powerful workspace. Built to streamline your thoughts and amplify your creativity—simple yet profound.
+          </motion.p>
+          <motion.div variants={fadeInUp}>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="bg-gray-900 dark:bg-gray-800 text-white px-6 py-3 rounded-md font-medium hover:bg-gray-800 dark:hover:bg-gray-700 transition-all duration-300"
+            >
+              Our Story
+            </motion.button>
+          </motion.div>
+        </motion.div>
+      </section>
+
+      {/* Features Section */}
+      <section id="features" className="py-24 px-6 bg-white dark:bg-gray-900">
+        <div className="max-w-6xl mx-auto text-center">
+          <motion.h3
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={fadeInUp}
+            className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-6"
           >
-            <span className="text-2xl">+</span>
-          </motion.button>
+            Designed for Mastery
+          </motion.h3>
+          <motion.p
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={fadeInUp}
+            className="text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto mb-12"
+          >
+            Tools that empower you to work smarter, not harder—crafted with precision and purpose.
+          </motion.p>
+          <motion.div
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={stagger}
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8"
+          >
+            {[
+              {
+                icon: "📝",
+                title: "Rich Notes",
+                desc: "Capture ideas with rich text, images, and embeds—synced instantly across devices.",
+              },
+              {
+                icon: "📊",
+                title: "Dynamic Databases",
+                desc: "Organize projects with customizable tables, boards, and filters—built for flexibility.",
+              },
+              {
+                icon: "👥",
+                title: "Real-Time Collaboration",
+                desc: "Work together seamlessly with live editing, comments, and version history.",
+              },
+              {
+                icon: "📄",
+                title: "Smart Templates",
+                desc: "Kickstart your work with pre-built layouts for notes, plans, and trackers.",
+              },
+            ].map((feature) => (
+              <motion.div
+                key={feature.title}
+                variants={fadeInUp}
+                whileHover={{ scale: 1.03, boxShadow: "0 10px 20px rgba(0, 0, 0, 0.05)" }}
+                className="p-6 bg-gray-50 dark:bg-gray-950 rounded-lg transition-all duration-300"
+              >
+                <motion.div
+                  initial={{ scale: 0 }}
+                  whileInView={{ scale: 1 }}
+                  transition={{ duration: 0.5, ease: [0.25, 0.1, 0.25, 1] }}
+                  className="text-3xl text-gray-500 dark:text-gray-400 mb-4"
+                >
+                  {feature.icon}
+                </motion.div>
+                <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">{feature.title}</h4>
+                <p className="text-sm text-gray-600 dark:text-gray-400">{feature.desc}</p>
+              </motion.div>
+            ))}
+          </motion.div>
+        </div>
+      </section>
 
-          {/* Note Editor */}
-          <AnimatePresence>
-            {selectedNote && (
-              <NoteEditor
-                note={selectedNote}
-                onSave={updateNote}
-              />
-            )}
-          </AnimatePresence>
-        </main>
-      </div>
+      {/* Pricing Section */}
+      <section id="pricing" className="py-24 px-6 bg-gray-50 dark:bg-gray-950">
+        <div className="max-w-6xl mx-auto text-center">
+          <motion.h3
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={fadeInUp}
+            className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-6"
+          >
+            Pricing That Fits
+          </motion.h3>
+          <motion.p
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={fadeInUp}
+            className="text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto mb-12"
+          >
+            From solo creators to growing teams—choose a plan that scales with you.
+          </motion.p>
+          <motion.div
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={stagger}
+            className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto"
+          >
+            {[
+              {
+                title: "Free",
+                price: "$0",
+                desc: "Unlimited notes, basic collaboration, and core features—forever free.",
+                color: "gray-500",
+              },
+              {
+                title: "Pro",
+                price: "$8/mo",
+                desc: "Advanced editing, unlimited databases, and priority support for power users.",
+                color: "gray-600",
+              },
+              {
+                title: "Team",
+                price: "$15/user/mo",
+                desc: "Enhanced security, team permissions, and premium features for collaboration.",
+                color: "gray-700",
+              },
+            ].map((plan) => (
+              <motion.div
+                key={plan.title}
+                variants={fadeInUp}
+                whileHover={{ scale: 1.03, boxShadow: "0 15px 30px rgba(0, 0, 0, 0.05)" }}
+                className={`p-6 bg-white dark:bg-gray-900 rounded-lg border-t-2 border-${plan.color} dark:border-${plan.color} transition-all duration-300`}
+              >
+                <h4 className="text-xl font-semibold text-gray-900 dark:text-white mb-3">{plan.title}</h4>
+                <p className="text-3xl font-bold text-gray-900 dark:text-white mb-3">{plan.price}</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">{plan.desc}</p>
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={plan.title === "Free" ? handleStartForFree : null}
+                  className={`bg-${plan.color} dark:bg-${plan.color} text-white px-6 py-2 rounded-md font-medium hover:bg-${plan.color}-600 dark:hover:bg-${plan.color}-600 transition-all duration-300`}
+                >
+                  Get Started
+                </motion.button>
+              </motion.div>
+            ))}
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="py-16 px-6 bg-white dark:bg-gray-900">
+        <motion.div
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true }}
+          variants={stagger}
+          className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-8"
+        >
+          <motion.div variants={fadeInUp}>
+            <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Noteify</h4>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Clarity in every note, purpose in every task.
+            </p>
+          </motion.div>
+          <motion.div variants={fadeInUp}>
+            <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Links</h4>
+            <ul className="space-y-2 text-sm">
+              {["About", "Features", "Pricing"].map((link) => (
+                <li key={link}>
+                  <a href={`#${link.toLowerCase()}`} className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors duration-300">
+                    {link}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </motion.div>
+          <motion.div variants={fadeInUp}>
+            <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Connect</h4>
+            <div className="flex gap-4">
+              {["𝕏", "📷", "🔗"].map((icon) => (
+                <motion.a
+                  key={icon}
+                  href="#"
+                  whileHover={{ scale: 1.1 }}
+                  className="text-lg text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-all duration-300"
+                >
+                  {icon}
+                </motion.a>
+              ))}
+            </div>
+          </motion.div>
+          <motion.div variants={fadeInUp}>
+            <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Newsletter</h4>
+            <input
+              type="email"
+              placeholder="Your email"
+              className="w-full p-2 rounded-md text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-300 dark:focus:ring-gray-600 transition-all duration-300"
+            />
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="w-full mt-3 bg-gray-900 dark:bg-gray-800 text-white px-4 py-2 rounded-md font-medium hover:bg-gray-800 dark:hover:bg-gray-700 transition-all duration-300"
+            >
+              Subscribe
+            </motion.button>
+          </motion.div>
+        </motion.div>
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.5 }}
+          className="text-center text-sm text-gray-600 dark:text-gray-400 mt-12"
+        >
+          © 2025 Noteify. All rights reserved.
+        </motion.p>
+      </footer>
     </div>
   );
 }
+
+// Updated CSS in your global stylesheet (e.g., globals.css)
+export const globalStyles = `
+  :root {
+    --gray-50: #F9FAFB;
+    --gray-100: #F3F4F6;
+    --gray-200: #E5E7EB;
+    --gray-300: #D1D5DB;
+    --gray-400: #9CA3AF;
+    --gray-500: #6B7280;
+    --gray-600: #4B5563;
+    --gray-700: #374151;
+    --gray-800: #1F2A44;
+    --gray-900: #111827;
+    --gray-950: #0D121C;
+  }
+
+  /* Light Theme */
+  .light {
+    background-color: var(--gray-50);
+    color: var(--gray-900);
+  }
+
+  .light .bg-white {
+    background-color: #FFFFFF;
+  }
+
+  .light .bg-gray-50 {
+    background-color: var(--gray-50);
+  }
+
+  .light .bg-gray-100 {
+    background-color: var(--gray-100);
+  }
+
+  /* Dark Theme */
+  .dark {
+    background-color: var(--gray-950);
+    color: var(--gray-100);
+  }
+
+  .dark .bg-gray-900 {
+    background-color: var(--gray-900);
+  }
+
+  .dark .bg-gray-950 {
+    background-color: var(--gray-950);
+  }
+
+  .dark .bg-gray-800 {
+    background-color: var(--gray-800);
+  }
+
+  /* Reset defaults and ensure no system interference */
+  html, body {
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+
+  /* Smooth scrolling */
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Disable system theme detection */
+  @media (prefers-color-scheme: dark) {
+    html:not(.light):not(.dark) {
+      background-color: var(--gray-950);
+      color: var(--gray-100);
+    }
+  }
+
+  @media (prefers-color-scheme: light) {
+    html:not(.light):not(.dark) {
+      background-color: var(--gray-50);
+      color: var(--gray-900);
+    }
+  }
+`;
