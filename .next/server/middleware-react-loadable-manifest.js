@@ -1,1 +1,1 @@
-self.__REACT_LOADABLE_MANIFEST="{}"
+self.__REACT_LOADABLE_MANIFEST="{\"pages/notes.js -> react-quill\":{\"id\":\"pages/notes.js -> react-quill\",\"files\":[\"static/chunks/_pages-dir-browser_node_modules_react-quill_lib_index_js.js\"]},\"pages/notes.js -> react-tsparticles\":{\"id\":\"pages/notes.js -> react-tsparticles\",\"files\":[\"static/chunks/_pages-dir-browser_node_modules_react-tsparticles_esm_index_js.js\"]}}"
