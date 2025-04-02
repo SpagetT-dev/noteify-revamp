@@ -270,7 +270,7 @@ export default function Notes() {
   const parallaxY = useTransform(scrollYProgress, [0, 1], [0, -100]);
 
   return (
-    <div className={`min-h-screen overflow-x-hidden transition-colors duration-700 ${theme === "dark" ? "bg-gradient-to-br from-[#0A1D37] via-[#1A4068] to-[#2D5F8B]" : "bg-gradient-to-br from-[#E6F0FA] via-[#F0F5FF] to-[#D1E0F0]"} relative text-black dark:text-white flex font-sans`}>
+    <div className={`select-none min-h-screen overflow-x-hidden transition-colors duration-700 ${theme === "dark" ? "bg-gradient-to-br from-[#0A1D37] via-[#1A4068] to-[#2D5F8B]" : "bg-gradient-to-br from-[#E6F0FA] via-[#F0F5FF] to-[#D1E0F0]"} relative text-black dark:text-white flex font-sans`}>
       <Head>
         <title>Noteify - Ultimate Notes</title>
         <meta name="description" content="The most detailed and feature-rich notes app ever." />

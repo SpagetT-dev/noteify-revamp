@@ -218,15 +218,7 @@ export default function Home() {
             >
               Blog
             </motion.a>
-            <motion.button
-              whileHover={{ scale: 1.1, rotate: 180 }}
-              whileTap={{ scale: 0.9 }}
-              onClick={toggleTheme}
-              className={`p-2 rounded-full ${theme === "dark" ? "bg-gray-700 text-white" : "bg-gray-200 text-gray-800"} hover:${theme === "dark" ? "bg-gray-600" : "bg-gray-300"} transition-all duration-300 shadow-sm`}
-              animate={controls}
-            >
-              {theme === "dark" ? "☀️" : "🌙"}
-            </motion.button>
+            
           </nav>
         </div>
       </motion.header>
