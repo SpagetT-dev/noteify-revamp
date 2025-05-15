@@ -1,481 +1,541 @@
-import Head from "next/head";
-import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/router";
-import { motion, useScroll, useTransform, useAnimationControls } from "framer-motion";
-import { FaPen, FaChartLine, FaUsers, FaRocket, FaBrain, FaLock, FaCloud } from "react-icons/fa";
-import Particles from "react-tsparticles";
-import { loadFull } from "tsparticles";
+'use client';
+
+import { useEffect, useRef } from 'react';
+import { gsap } from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import { CloudIcon, PencilIcon, MagnifyingGlassIcon, UserGroupIcon, DocumentTextIcon, ShieldCheckIcon, LockClosedIcon, ShareIcon, ClockIcon } from '@heroicons/react/24/outline';
+import Link from 'next/link';
+
+gsap.registerPlugin(ScrollTrigger);
 
 export default function Home() {
-  const [theme, setTheme] = useState("dark");
-  const router = useRouter();
-  const { scrollYProgress } = useScroll();
-  const controls = useAnimationControls();
-  const particleRef = useRef(null);
+  const heroRef = useRef(null);
+  const featuresRef = useRef(null);
+  const pricingRef = useRef(null);
 
   useEffect(() => {
-    const savedTheme = localStorage.getItem("theme");
-    if (savedTheme && savedTheme !== theme) setTheme(savedTheme);
-    else {
-      document.documentElement.classList.remove("light", "dark");
-      document.documentElement.classList.add(theme);
-      localStorage.setItem("theme", theme);
-    }
-  }, [theme]);
-
-  const toggleTheme = () => {
-    setTheme((prev) => (prev === "dark" ? "light" : "dark"));
-    controls.start({ rotate: theme === "dark" ? 180 : 0 });
-  };
-
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
+    // Hero Section Animations
+    gsap.fromTo(
+      '.hero-text span',
+      { opacity: 0, y: 20 },
+      {
+        opacity: 1,
+        y: 0,
         duration: 0.8,
-        ease: [0.25, 0.1, 0.25, 1],
-        staggerChildren: 0.2,
-      },
-    },
-  };
-
-  const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: {
+        stagger: 0.1,
+        ease: 'power3.out',
+      }
+    );
+    gsap.fromTo(
+      '.hero-subtitle',
+      { opacity: 0, scale: 0.8 },
+      {
+        opacity: 1,
+        scale: 1,
+        duration: 1,
+        delay: 0.5,
+        ease: 'elastic.out(1, 0.5)',
+      }
+    );
+    gsap.fromTo(
+      '.hero-button',
+      { scale: 0, opacity: 0 },
+      {
+        scale: 1,
+        opacity: 1,
         duration: 0.8,
-        ease: [0.25, 0.1, 0.25, 1],
+        delay: 1,
+        ease: 'bounce.out',
+      }
+    );
+    gsap.to('.hero-button', {
+      scale: 1.1,
+      duration: 0.5,
+      repeat: -1,
+      yoyo: true,
+      ease: 'sine.inOut',
+      paused: true,
+      onHover: () => gsap.play(),
+      onHoverEnd: () => gsap.pause(),
+    });
+
+    // Navbar Animations
+    gsap.fromTo(
+      '.nav-link',
+      { opacity: 0, x: -20 },
+      {
+        opacity: 1,
+        x: 0,
+        duration: 0.6,
+        stagger: 0.1,
+        delay: 0.3,
+        ease: 'power2.out',
+      }
+    );
+    document.querySelectorAll('.nav-link').forEach((link) => {
+      link.addEventListener('mouseenter', () => {
+        gsap.to(link, { scale: 1, color: '#64748b', duration: 0.1 });
+      });
+      link.addEventListener('mouseleave', () => {
+        gsap.to(link, { scale: 1, color: '#fff', duration: 0.3 });
+      });
+    });
+
+    // Features Section Animations
+    gsap.fromTo(
+      '.features-heading',
+      { opacity: 0, x: -50 },
+      {
+        opacity: 1,
+        x: 0,
+        duration: 1,
+        ease: 'power3.out',
+        scrollTrigger: { trigger: '#features', start: 'top 80%' },
+      }
+    );
+    gsap.fromTo(
+      '.card',
+      { opacity: 0, y: 30, rotation: -5 },
+      {
+        opacity: 1,
+        y: 0,
+        rotation: 0,
+        duration: 0.8,
+        stagger: 0.2,
+        ease: 'power3.out',
+        scrollTrigger: { trigger: '#features', start: 'top 80%' },
+      }
+    );
+    gsap.fromTo(
+      '.feature-icon',
+      { scale: 0, opacity: 0 },
+      {
+        scale: 1,
+        opacity: 1,
+        duration: 0.8,
+        stagger: 0.2,
+        ease: 'bounce.out',
+        scrollTrigger: { trigger: '#features', start: 'top 80%' },
+      }
+    );
+    gsap.fromTo(
+      '.learn-more',
+      { opacity: 0, y: 10 },
+      {
+        opacity: 1,
+        y: 0,
+        duration: 0.6,
+        stagger: 0.2,
+        delay: 0.5,
+        ease: 'power2.out',
+        scrollTrigger: { trigger: '#features', start: 'top 80%' },
+      }
+    );
+    document.querySelectorAll('.card').forEach((card) => {
+      card.addEventListener('mouseenter', () => {
+        gsap.to(card, { rotation: 3, duration: 0.3, ease: 'power2.out' });
+      });
+      card.addEventListener('mouseleave', () => {
+        gsap.to(card, { rotation: 0, duration: 0.3, ease: 'power2.out' });
+      });
+    });
+
+    // Pricing Section Animations
+    gsap.fromTo(
+      '.pricing-heading',
+      { opacity: 0, y: -50 },
+      {
+        opacity: 1,
+        y: 0,
+        duration: 1,
+        ease: 'bounce.out',
+        scrollTrigger: { trigger: '#pricing', start: 'top 80%' },
+      }
+    );
+    gsap.fromTo(
+      '.pricing-card',
+      { opacity: 0, y: 30, rotation: 5 },
+      {
+        opacity: 1,
+        y: 0,
+        rotation: 0,
+        duration: 0.8,
+        stagger: 0.2,
+        ease: 'power3.out',
+        scrollTrigger: { trigger: '#pricing', start: 'top 80%' },
+      }
+    );
+    gsap.fromTo(
+      '.pricing-icon',
+      { scale: 0, opacity: 0 },
+      {
+        scale: 1,
+        opacity: 1,
+        duration: 0.8,
+        stagger: 0.2,
+        ease: 'elastic.out(1, 0.5)',
+        scrollTrigger: { trigger: '#pricing', start: 'top 80%' },
+      }
+    );
+    gsap.fromTo(
+      '.popular-badge',
+      { scale: 0, opacity: 0 },
+      {
+        scale: 1,
+        opacity: 1,
+        duration: 0.8,
+        delay: 0.5,
+        ease: 'bounce.out',
+        scrollTrigger: { trigger: '#pricing', start: 'top 80%' },
+      }
+    );
+    gsap.fromTo(
+      '.choose-plan',
+      { scale: 0.8, opacity: 0 },
+      {
+        scale: 1,
+        opacity: 1,
+        duration: 0.8,
+        stagger: 0.2,
+        ease: 'power3.out',
+        scrollTrigger: { trigger: '#pricing', start: 'top 80%' },
+      }
+    );
+    document.querySelectorAll('.choose-plan').forEach((btn) => {
+      gsap.to(btn, {
+        scale: 1.05,
+        duration: 0.5,
+        repeat: -1,
+        yoyo: true,
+        ease: 'sine.inOut',
+        paused: true,
+      });
+      btn.addEventListener('mouseenter', () => gsap.play());
+      btn.addEventListener('mouseleave', () => gsap.pause());
+    });
+
+    // Background Color Transitions
+    gsap.to('body', {
+      backgroundColor: '#94a3b8',
+      duration: 1,
+      ease: 'none',
+      scrollTrigger: {
+        trigger: '#features',
+        start: 'top 50%',
+        end: 'top 20%',
+        scrub: true,
       },
-    },
-  };
-
-  const floatingVariants = {
-    initial: { y: 0, rotate: 0 },
-    animate: {
-      y: [0, -15, 0],
-      rotate: [0, 2, -2, 0],
-      transition: {
-        duration: 3,
-        ease: "easeInOut",
-        repeat: Infinity,
-        repeatType: "reverse",
+    });
+    gsap.to('body', {
+      backgroundColor: '#64748b',
+      duration: 1,
+      ease: 'none',
+      scrollTrigger: {
+        trigger: '#pricing',
+        start: 'top 50%',
+        end: 'top 20%',
+        scrub: true,
       },
-    },
-  };
+    });
 
-  const parallaxY = useTransform(scrollYProgress, [0, 1], [0, -150]);
-  const handleGetStarted = () => router.push("/dashboard");
-
-  const particlesInit = async (engine) => {
-    await loadFull(engine);
-    particleRef.current = engine;
-  };
-
-  const particlesLoaded = (container) => {
-    console.log("Particles loaded", container);
-  };
+    // Cleanup event listeners
+    return () => {
+      document.querySelectorAll('.nav-link').forEach((link) => {
+        link.removeEventListener('mouseenter', () => {});
+        link.removeEventListener('mouseleave', () => {});
+      });
+      document.querySelectorAll('.card').forEach((card) => {
+        card.removeEventListener('mouseenter', () => {});
+        card.removeEventListener('mouseleave', () => {});
+      });
+      document.querySelectorAll('.choose-plan').forEach((btn) => {
+        btn.removeEventListener('mouseenter', () => {});
+        btn.removeEventListener('mouseleave', () => {});
+      });
+    };
+  }, []);
 
   return (
-    <div className={`min-h-screen select-none overflow-x-hidden transition-colors duration-700 ${theme === "dark" ? "bg-gradient-to-br from-[#0A1D37] via-[#1A4068] to-[#2D5F8B]" : "bg-gradient-to-br from-[#E6F0FA] via-[#F0F5FF] to-[#D1E0F0]"} relative`}>
-      <Head>
-        <title>Noteify - The Pinnacle of Productivity</title>
-        <meta name="description" content="Noteify redefines productivity with AI-driven insights, real-time collaboration, and limitless customization." />
-        <link rel="icon" href="/favicon.ico" />
-      </Head>
-
+    <div className="bg-slate-400 font-inter transition-colors duration-500 select-none" ref={heroRef}>
       <style jsx global>{`
-        @tailwind base;
-        @tailwind components;
-        @tailwind utilities;
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Poppins:wght@300;500&display=swap');
 
-        @layer base {
-          html, body {
-            @apply bg-noteify-bg-light text-noteify-text-dark;
-            overflow-x: hidden;
+        .dynamic-island {
+          background-color: rgba(141, 214, 219, 0.83);
+          color: #fff;
+          border-radius: 9999px;
+          padding: 0.75rem 1.5rem;
+          display: flex;
+          align-items: center;
+          gap: 1.5rem;
+          box-shadow: 0 10px 6px rgba(129, 121, 121, 0.2);
+          transition: all 0.3s ease;
+          position: relative;
+          left: 50%;
+          transform: translateX(-50%);
+          width: fit-content;
+        }
+        .dynamic-island:hover {
+          padding-left: 2rem;
+          padding-right: 2rem;
+        }
+        .hero-text {
+          font-size: 3rem;
+          line-height: 1.2;
+          font-weight: 700;
+          background-clip: text;
+          -webkit-background-clip: text;
+          color: transparent;
+          background-image: linear-gradient(to right, rgb(141, 214, 219), rgb(141, 214, 219));
+        }
+        @media (min-width: 768px) {
+          .hero-text {
+            font-size: 4.5rem;
           }
-          h1 {
-            @apply text-4xl md:text-5xl font-extrabold;
-          }
-          h2 {
-            @apply text-3xl md:text-4xl font-bold;
-          }
-          p {
-            @apply text-sm md:text-base leading-relaxed;
-          }
-          .card {
-            @apply p-8 rounded-2xl bg-white/10 dark:bg-gray-800/80 border border-gray-200/10 dark:border-gray-700/50 transition-all duration-300 flex flex-col items-center text-center min-h-[350px] justify-between relative;
-          }
-          .card:hover {
-            @apply bg-white/20 dark:bg-gray-700/60 shadow-lg transform scale-105;
-          }
-          .animate-float {
-            animation: float 4s ease-in-out infinite;
-          }
-          @keyframes float {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-10px); }
-          }
-          .animate-pulse-grow {
-            animation: pulse-grow 2s infinite;
-          }
-          @keyframes pulse-grow {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-          }
-          .force-visible {
-            opacity: 1 !important;
-            visibility: visible !important;
-            display: block !important;
-          }
+        }
+        .card, .pricing-card {
+          background-color: #fff;
+          border-radius: 1rem;
+          box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
+          padding: 1.5rem;
+          transform: translateY(0);
+          transition: all 0.5s ease;
+        }
+        .card:hover, .pricing-card:hover {
+          transform: scale(1.05);
+        }
+        body {
+          font-family: 'Inter', sans-serif;
         }
       `}</style>
 
-      {/* Particles covering the whole page */}
-      <Particles
-        id="tsparticles"
-        init={particlesInit}
-        loaded={particlesLoaded}
-        options={{
-          fullScreen: { enable: true, zIndex: 0 },
-          background: { color: { value: theme === "dark" ? "#0A1D37" : "#E6F0FA" } },
-          fpsLimit: 60,
-          interactivity: {
-            detectsOn: "canvas",
-            events: {
-              onClick: { enable: true, mode: "push" },
-              onHover: { enable: true, mode: "repulse" },
-              resize: true,
-            },
-            modes: {
-              push: { quantity: 4 },
-              repulse: { distance: 100, duration: 0.4 },
-            },
-          },
-          particles: {
-            color: { value: theme === "dark" ? "#4CAF50" : "#1E90FF" },
-            links: {
-              color: theme === "dark" ? "#4CAF50" : "#1E90FF",
-              distance: 150,
-              enable: true,
-              opacity: 0.5,
-              width: 1,
-            },
-            collisions: { enable: true },
-            move: {
-              direction: "none",
-              enable: true,
-              outMode: "bounce",
-              random: false,
-              speed: 2,
-              straight: false,
-            },
-            number: { density: { enable: true, area: 800 }, value: 80 },
-            opacity: { value: 0.5 },
-            shape: { type: "circle" },
-            size: { value: { min: 1, max: 5 } },
-          },
-          detectRetina: true,
-        }}
-        className="absolute inset-0 z-0"
-      />
-
-      {/* Header */}
-      <motion.header
-        initial={{ y: -100 }}
-        animate={{ y: 0 }}
-        transition={{ duration: 0.8, type: "spring", stiffness: 100 }}
-        className="fixed top-0 left-0 right-0 bg-white/10 dark:bg-black/20 backdrop-blur-md py-4 px-6 z-50 shadow-md border-b border-white/5 dark:border-black/10"
-      >
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <motion.h1
-            whileHover={{ scale: 1.05, color: theme === "dark" ? "#4CAF50" : "#1E90FF" }}
-            className={`text-2xl font-bold ${theme === "dark" ? "text-white" : "text-gray-800"} tracking-tight`}
-          >
-            Noteify
-          </motion.h1>
-          <nav className="flex items-center space-x-8">
-            <motion.a
-              href="#features"
-              whileHover={{ scale: 1.05, color: theme === "dark" ? "#4CAF50" : "#1E90FF", y: -2 }}
-              className={`text-sm font-medium ${theme === "dark" ? "text-gray-300" : "text-gray-600"} hover:text-white transition-all duration-200`}
-            >
-              Features
-            </motion.a>
-            <motion.a
-              href="#pricing"
-              whileHover={{ scale: 1.05, color: theme === "dark" ? "#4CAF50" : "#1E90FF", y: -2 }}
-              className={`text-sm font-medium ${theme === "dark" ? "text-gray-300" : "text-gray-600"} hover:text-white transition-all duration-200`}
-            >
-              Pricing
-            </motion.a>
-            <motion.a
-              href="#blog"
-              whileHover={{ scale: 1.05, color: theme === "dark" ? "#4CAF50" : "#1E90FF", y: -2 }}
-              className={`text-sm font-medium ${theme === "dark" ? "text-gray-300" : "text-gray-600"} hover:text-white transition-all duration-200`}
-            >
-              Blog
-            </motion.a>
-            
-          </nav>
-        </div>
-      </motion.header>
+      {/* Dynamic Island Navbar */}
+      <nav className="fixed top-4 z-50 dynamic-island">
+        <a href="#home" className="nav-link transition-colors">
+          Home
+        </a>
+        <a href="#features" className="nav-link transition-colors">
+          Features
+        </a>
+        <a href="#pricing" className="nav-link transition-colors">
+          Pricing
+        </a>
+        <a href="#contact" className="nav-link transition-colors">
+          Contact
+        </a>
+      </nav>
 
       {/* Hero Section */}
-      <section className="min-h-screen flex items-center justify-center relative overflow-hidden px-4 py-20 z-20">
-        <motion.div
-          style={{ y: parallaxY }}
-          initial="hidden"
-          animate="visible"
-          variants={containerVariants}
-          className="max-w-4xl mx-auto text-center relative"
-        >
-          <motion.h1
-            variants={itemVariants}
-            className={`text-4xl md:text-5xl font-extrabold ${theme === "dark" ? "text-white" : "text-gray-800"} bg-gradient-to-r from-[#1E90FF] to-[#4CAF50] bg-clip-text text-transparent drop-shadow-lg`}
-          >
-            Welcome to Noteify
-          </motion.h1>
-          <motion.p
-            variants={itemVariants}
-            className={`text-base md:text-lg ${theme === "dark" ? "text-gray-300" : "text-gray-600"} mt-6 mb-12 max-w-2xl mx-auto leading-relaxed`}
-          >
-            Noteify transforms productivity with AI insights, real-time collaboration, and infinite customization. Designed for innovators, it turns chaos into clarity.
-          </motion.p>
-          <motion.div variants={itemVariants} className="flex flex-col md:flex-row justify-center gap-6">
-            <motion.button
-              whileHover={{ scale: 1.05, boxShadow: "0 10px 25px rgba(30, 144, 255, 0.4)" }}
-              whileTap={{ scale: 0.95 }}
-              onClick={handleGetStarted}
-              className="bg-gradient-to-r from-[#1E90FF] to-[#4CAF50] text-white px-8 py-3 rounded-lg font-semibold text-lg hover:from-[#1864AB] hover:to-[#3D8B40] transition-all duration-300 shadow-xl"
-            >
+      <section
+        id="home"
+        className="min-h-screen flex items-center justify-center px-4"
+      >
+        <div className="text-center">
+          <h1 className="hero-text">
+            {Array.from('Noteify').map((char, index) => (
+              <span key={index}>{char}</span>
+            ))}
+          </h1>
+          <p className="hero-subtitle text-xl md:text-2xl text-gray-700 mt-4 max-w-2xl mx-auto">
+            Capture your thoughts, organize your life, and boost productivity with
+            the ultimate note-taking experience.
+          </p>
+          <Link href="/login">
+            <button className="hero-button mt-8 px-8 bg-gradient-to-r from-[#8dd6db] to-[#8dd6db] py-3 text-white rounded-full shadow-lg hover:px-10 transition-all duration-300">
               Get Started
-            </motion.button>
-            <motion.button
-              whileHover={{ scale: 1.05, backgroundColor: theme === "dark" ? "#2D3748" : "#EDF2F7", color: theme === "dark" ? "#4CAF50" : "#1E90FF" }}
-              whileTap={{ scale: 0.95 }}
-              className={`border-2 ${theme === "dark" ? "border-gray-600 bg-gray-800 text-gray-200" : "border-gray-300 bg-white text-gray-700"} px-8 py-3 rounded-lg font-semibold text-lg hover:${theme === "dark" ? "bg-gray-700" : "bg-gray-100"} transition-all duration-300`}
-            >
-              Learn More
-            </motion.button>
-          </motion.div>
-        </motion.div>
+            </button>
+          </Link>
+        </div>
       </section>
 
       {/* Features Section */}
-      <section id="features" className="py-16 px-6 bg-transparent relative z-20">
-        <div className="max-w-6xl mx-auto text-center">
-          <motion.h2
-            initial="hidden"
-            animate="visible"
-            variants={containerVariants}
-            className={`text-3xl md:text-4xl font-bold ${theme === "dark" ? "text-white" : "text-gray-800"} mb-10 bg-gradient-to-r from-[#1E90FF]/70 to-[#4CAF50]/70 bg-clip-text text-transparent`}
-          >
-            Unleash Limitless Possibilities
-          </motion.h2>
-          <motion.div
-            initial="hidden"
-            animate="visible"
-            variants={containerVariants}
-            className="grid grid-cols-1 md:grid-cols-3 gap-6"
-          >
-            {[
-              { icon: FaPen, title: "Smart Note-Taking", desc: "Rich text, embeds, AI suggestions, and device sync." },
-              { icon: FaChartLine, title: "Dynamic Workspaces", desc: "Custom databases, kanban, charts, and analytics." },
-              { icon: FaUsers, title: "Collaboration", desc: "Live editing, permissions, version history, and resolution." },
-              { icon: FaRocket, title: "AI Power", desc: "Task prioritization, analytics, and workflow automation." },
-              { icon: FaBrain, title: "Insights", desc: "NLP for ideas, summaries, and recommendations." },
-              { icon: FaLock, title: "Security", desc: "Encryption, SSO, two-factor auth, and compliance." },
-              { icon: FaCloud, title: "Cloud Sync", desc: "Cross-device sync, offline access, and unlimited storage." },
-            ].map((feature, index) => (
-              <motion.div
-                key={index}
-                initial="hidden"
-                animate="visible"
-                variants={itemVariants}
-                whileHover={{ scale: 1.05, boxShadow: "0 8px 16px rgba(0, 0, 0, 0.2)" }}
-                className="card flex flex-col items-center text-center"
+      <section
+        id="features"
+        className="min-h-screen flex items-center justify-center py-20"
+        ref={featuresRef}
+      >
+        <div className="container mx-auto px-4">
+          <h2 className="features-heading text-4xl font-bold text-center text-gray-800 mb-12">
+            Why Choose Noteify?
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div className="card">
+              <CloudIcon className="feature-icon w-12 h-12 text-indigo-600 mb-4" />
+              <h3 className="text-2xl font-semibold text-gray-800">
+                Seamless Sync
+              </h3>
+              <p className="text-gray-600 mt-2">
+                Effortlessly access your notes on any device—phones, tablets, or
+                desktops—with real-time cloud synchronization powered by secure
+                servers.
+              </p>
+              <a
+                href="#"
+                className="learn-more mt-4 inline-block text-indigo-600 hover:underline"
               >
-                <feature.icon className={`text-4xl mb-4 ${theme === "dark" ? "text-[#4CAF50]" : "text-[#1E90FF]"} animate-float`} />
-                <h3 className={`text-xl font-semibold ${theme === "dark" ? "text-white" : "text-gray-800"} mb-2`}>{feature.title}</h3>
-                <p className={`text-sm ${theme === "dark" ? "text-gray-400" : "text-gray-600"}`}>{feature.desc}</p>
-              </motion.div>
-            ))}
-          </motion.div>
+                Learn More
+              </a>
+            </div>
+            <div className="card">
+              <PencilIcon className="feature-icon w-12 h-12 text-indigo-600 mb-4" />
+              <h3 className="text-2xl font-semibold text-gray-800">
+                Rich Formatting
+              </h3>
+              <p className="text-gray-600 mt-2">
+                Craft stunning notes with markdown support, embedded images, code
+                snippets, and customizable templates for every project.
+              </p>
+              <a
+                href="#"
+                className="learn-more mt-4 inline-block text-indigo-600 hover:underline"
+              >
+                Explore Formatting
+              </a>
+            </div>
+            <div className="card">
+              <MagnifyingGlassIcon className="feature-icon w-12 h-12 text-indigo-600 mb-4" />
+              <h3 className="text-2xl font-semibold text-gray-800">
+                Smart Search
+              </h3>
+              <p className="text-gray-600 mt-2">
+                Instantly locate any note with AI-driven search, including
+                handwriting recognition and tag-based filtering for ultimate
+                organization.
+              </p>
+              <a
+                href="#"
+                className="learn-more mt-4 inline-block text-indigo-600 hover:underline"
+              >
+                Try Search
+              </a>
+            </div>
+            <div className="card">
+              <LockClosedIcon className="feature-icon w-12 h-12 text-indigo-600 mb-4" />
+              <h3 className="text-2xl font-semibold text-gray-800">
+                Enhanced Security
+              </h3>
+              <p className="text-gray-600 mt-2">
+                Keep your notes safe with end-to-end encryption and two-factor
+                authentication for peace of mind.
+              </p>
+              <a
+                href="#"
+                className="learn-more mt-4 inline-block text-indigo-600 hover:underline"
+              >
+                Discover Security
+              </a>
+            </div>
+            <div className="card">
+              <ShareIcon className="feature-icon w-12 h-12 text-indigo-600 mb-4" />
+              <h3 className="text-2xl font-semibold text-gray-800">
+                Easy Sharing
+              </h3>
+              <p className="text-gray-600 mt-2">
+                Collaborate effortlessly by sharing notes or folders with team
+                members via secure links or direct invites.
+              </p>
+              <a
+                href="#"
+                className="learn-more mt-4 inline-block text-indigo-600 hover:underline"
+              >
+                Share Now
+              </a>
+            </div>
+            <div className="card">
+              <ClockIcon className="feature-icon w-12 h-12 text-indigo-600 mb-4" />
+              <h3 className="text-2xl font-semibold text-gray-800">
+                Version History
+              </h3>
+              <p className="text-gray-600 mt-2">
+                Track changes and restore previous versions of your notes with a
+                comprehensive version history feature.
+              </p>
+              <a
+                href="#"
+                className="learn-more mt-4 inline-block text-indigo-600 hover:underline"
+              >
+                Explore Versions
+              </a>
+            </div>
+          </div>
         </div>
       </section>
 
       {/* Pricing Section */}
-      <section id="pricing" className="py-16 px-6 bg-transparent relative z-20">
-        <div className="max-w-6xl mx-auto text-center">
-          <motion.h2
-            initial="hidden"
-            animate="visible"
-            variants={containerVariants}
-            className={`text-3xl md:text-4xl font-bold ${theme === "dark" ? "text-white" : "text-gray-800"} mb-10 bg-gradient-to-r from-[#1E90FF]/70 to-[#4CAF50]/70 bg-clip-text text-transparent`}
-          >
-            Flexible Pricing Plans
-          </motion.h2>
-          <motion.div
-            initial="hidden"
-            animate="visible"
-            variants={containerVariants}
-            className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto"
-          >
-            {[
-              { title: "Free", price: "$0", desc: "Basic notes, 2GB storage, community support.", features: ["Notes", "Sync", "Support"] },
-              { title: "Pro", price: "$12/mo", desc: "Advanced tools, 50GB storage, priority support.", features: ["Databases", "AI", "Offline", "Support"] },
-              { title: "Enterprise", price: "Custom", desc: "Unlimited features, 1TB storage, dedicated support.", features: ["Security", "Integrations", "Manager", "Users"] },
-            ].map((plan, index) => (
-              <motion.div
-                key={index}
-                initial="hidden"
-                animate="visible"
-                variants={itemVariants}
-                whileHover="hover"
-                whileTap={{ scale: 0.97 }}
-                className="pricing-card card flex flex-col items-center text-center min-h-[350px] p-8 relative hover-glow"
-              >
-                <div className="flex flex-col h-full justify-between">
-                  <div>
-                    <h3 className={`text-xl font-bold ${theme === "dark" ? "text-white" : "text-gray-800"} mb-3`}>{plan.title}</h3>
-                    <p className={`text-2xl font-bold ${theme === "dark" ? "text-white" : "text-gray-800"} mb-4`}>{plan.price}</p>
-                    <p className={`text-sm ${theme === "dark" ? "text-gray-400" : "text-gray-600"} mb-6`}>{plan.desc}</p>
-                    <ul className={`text-left ${theme === "dark" ? "text-gray-300" : "text-gray-600"} space-y-2 mb-6`}>
-                      {plan.features.map((feature, i) => (
-                        <li key={i} className="flex items-center text-sm">
-                          <span className="w-2 h-2 bg-[#4CAF50] rounded-full mr-2 animate-pulse-grow"></span>
-                          {feature}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                  <motion.button
-                    whileHover={{ scale: 1.03, backgroundColor: theme === "dark" ? "#2D3748" : "#EDF2F7" }}
-                    whileTap={{ scale: 0.97 }}
-                    className={`w-full py-2.5 rounded-lg font-semibold ${theme === "dark" ? "bg-gray-700 text-white hover:bg-gray-600" : "bg-gray-200 text-gray-700 hover:bg-gray-300"} transition-all duration-200 mt-auto`}
-                  >
-                    Choose Plan
-                  </motion.button>
-                </div>
-              </motion.div>
-            ))}
-          </motion.div>
+      <section
+        id="pricing"
+        className="min-h-screen flex items-center justify-center py-20"
+        ref={pricingRef}
+      >
+        <div className="container mx-auto px-4">
+          <h2 className="pricing-heading text-4xl font-bold text-center text-gray-800 mb-12">
+            Pricing Plans
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="pricing-card">
+              <DocumentTextIcon className="pricing-icon w-12 h-12 text-[#8dd6db] mb-4" />
+              <h3 className="text-2xl font-semibold text-gray-800">Free</h3>
+              <p className="text-3xl font-bold text-[#8dd6db] mt-4">
+                $0<span className="text-base text-gray-600">/mo</span>
+              </p>
+              <p className="text-gray-600 mt-2">
+                Perfect for casual users who need basic note-taking features.
+              </p>
+              <ul className="mt-4 text-gray-600 space-y-2">
+                <li>Basic note-taking with text support</li>
+                <li>5GB cloud storage</li>
+                <li>Access to community forums</li>
+                <li>Sync across 2 devices</li>
+              </ul>
+              <button className="choose-plan mt-6 px-6 py-2 bg-[#8dd6db] text-white rounded-full hover:px-7 transition-all duration-300">
+                Choose Plan
+              </button>
+            </div>
+            <div className="pricing-card relative">
+              <div className="popular-badge absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-[#8dd6db] text-white text-sm font-semibold px-4 py-1 rounded-full">
+                Most Popular
+              </div>
+              <UserGroupIcon className="pricing-icon w-12 h-12 text-[#8dd6db] mb-4" />
+              <h3 className="text-2xl font-semibold text-gray-800">Pro</h3>
+              <p className="text-3xl font-bold text-[#8dd6db] mt-4">
+                $9<span className="text-base text-gray-600">/mo</span>
+              </p>
+              <p className="text-gray-600 mt-2">
+                Ideal for professionals needing advanced tools and storage.
+              </p>
+              <ul className="mt-4 text-gray-600 space-y-2">
+                <li>Advanced markdown and rich media</li>
+                <li>50GB cloud storage</li>
+                <li>Sync across 5 devices</li>
+                <li>Offline mode access</li>
+              </ul>
+              <button className="choose-plan mt-6 px-6 py-2 bg-[#8dd6db] text-white rounded-full hover:px-7 transition-all duration-300">
+                Choose Plan
+              </button>
+            </div>
+            <div className="pricing-card">
+              <ShieldCheckIcon className="pricing-icon w-12 h-12 text-[#8dd6db] mb-4" />
+              <h3 className="text-2xl font-semibold text-gray-800">Team</h3>
+              <p className="text-3xl font-bold text-[#8dd6db] mt-4">
+                $19<span className="text-base text-gray-600">/mo</span>
+              </p>
+              <p className="text-gray-600 mt-2">
+                Built for teams with collaboration and security needs.
+              </p>
+              <ul className="mt-4 text-gray-600 space-y-2">
+                <li>Real-time collaboration tools</li>
+                <li>Unlimited cloud storage</li>
+                <li>24/7 dedicated support</li>
+                <li>Sync across unlimited devices</li>
+                <li>Advanced security features</li>
+              </ul>
+              <button className="choose-plan mt-6 px-6 py-2 bg-[#8dd6db] text-white rounded-full hover:px-7 transition-all duration-300">
+                Choose Plan
+              </button>
+            </div>
+          </div>
         </div>
       </section>
-
-      {/* Footer */}
-      <footer className="py-12 px-6 bg-[#0A1D37] relative z-20">
-        <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-5 gap-8">
-          <motion.div
-            initial="hidden"
-            animate="visible"
-            variants={itemVariants}
-          >
-            <h4 className="text-xl font-bold mb-3 text-white">Noteify</h4>
-            <p className="text-sm text-gray-400">Empowering productivity for innovators worldwide.</p>
-          </motion.div>
-          <motion.div
-            initial="hidden"
-            animate="visible"
-            variants={itemVariants}
-          >
-            <h4 className="text-xl font-bold mb-3 text-white">Discover</h4>
-            <ul className="space-y-2 text-sm">
-              {["Features", "Pricing", "Blog", "Docs", "Tutorials"].map((link) => (
-                <li key={link}>
-                  <motion.a
-                    href={`#${link.toLowerCase()}`}
-                    whileHover={{ x: 3, color: "#4CAF50" }}
-                    className="text-gray-300 hover:text-[#4CAF50] transition-all duration-200"
-                  >
-                    {link}
-                  </motion.a>
-                </li>
-              ))}
-            </ul>
-          </motion.div>
-          <motion.div
-            initial="hidden"
-            animate="visible"
-            variants={itemVariants}
-          >
-            <h4 className="text-xl font-bold mb-3 text-white">Community</h4>
-            <div className="flex flex-col gap-2">
-              <motion.a
-                href="#"
-                whileHover={{ scale: 1.15, color: "#4CAF50" }}
-                className="text-xl text-gray-400 hover:text-white transition-all duration-200"
-              >
-                𝕏
-              </motion.a>
-              <motion.a
-                href="#"
-                whileHover={{ scale: 1.15, color: "#4CAF50" }}
-                className="text-xl text-gray-400 hover:text-white transition-all duration-200"
-              >
-                📷
-              </motion.a>
-              <motion.a
-                href="#"
-                whileHover={{ scale: 1.15, color: "#4CAF50" }}
-                className="text-xl text-gray-400 hover:text-white transition-all duration-200"
-              >
-                🔗
-              </motion.a>
-            </div>
-          </motion.div>
-          <motion.div
-            initial="hidden"
-            animate="visible"
-            variants={itemVariants}
-          >
-            <h4 className="text-xl font-bold mb-3 text-white">Support</h4>
-            <ul className="space-y-2 text-sm">
-              {["Help Center", "Contact", "FAQs", "Status"].map((link) => (
-                <li key={link}>
-                  <motion.a
-                    href={`#${link.toLowerCase().replace(" ", "-")}`}
-                    whileHover={{ x: 3, color: "#4CAF50" }}
-                    className="text-gray-300 hover:text-[#4CAF50] transition-all duration-200"
-                  >
-                    {link}
-                  </motion.a>
-                </li>
-              ))}
-            </ul>
-          </motion.div>
-          <motion.div
-            initial="hidden"
-            animate="visible"
-            variants={itemVariants}
-          >
-            <h4 className="text-xl font-bold mb-3 text-white">Newsletter</h4>
-            <input
-              type="email"
-              placeholder="Your email"
-              className="w-full p-3 rounded-lg bg-gray-800 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#1E90FF] transition-all duration-200 mb-2"
-            />
-            <motion.button
-              whileHover={{ scale: 1.03, backgroundColor: "#1E90FF" }}
-              whileTap={{ scale: 0.97 }}
-              className="w-full py-2.5 rounded-lg bg-[#1E90FF] text-white font-semibold hover:bg-[#1864AB] transition-all duration-200"
-            >
-              Subscribe
-            </motion.button>
-          </motion.div>
-        </div>
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.5 }}
-          className="text-center text-sm text-gray-400 mt-8"
-        >
-          © 2025 Noteify. All rights reserved. Built with passion.
-        </motion.p>
-      </footer>
     </div>
   );
 }

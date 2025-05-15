@@ -1,638 +1,813 @@
-import Head from "next/head";
-import { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import React from "react";
-import { useRouter } from "next/router";
-import { motion, AnimatePresence, useScroll, useTransform, useAnimationControls } from "framer-motion";
-import dynamic from "next/dynamic";
-import "react-quill/dist/quill.snow.css";
-import { loadFull } from "tsparticles";
-import { FaSearch, FaTag, FaPin, FaDownload, FaUpload, FaMicrophone, FaPalette } from "react-icons/fa";
-import debounce from "lodash/debounce"; // Install lodash for debounce
+'use client';
 
-// Dynamic imports
-const ReactQuill = dynamic(() => import("react-quill"), { ssr: false });
-const ParticlesDynamic = dynamic(() => import("react-tsparticles"), { ssr: false });
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Plus, Trash2, Edit2, Search, Tag, Calendar, Download, Pin, Settings, ChevronLeft, ChevronRight, Eye, SortAsc, SortDesc } from 'lucide-react';
+import toast, { Toaster } from 'react-hot-toast';
+import { v4 as uuidv4 } from 'uuid';
+import { PDFDocument } from 'pdf-lib';
+import { EditorContent, useEditor } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import ReactMarkdown from 'react-markdown';
+import Prism from 'prismjs';
+import { useDebounce } from 'use-debounce';
+import { useAuth } from '../contexts/AuthContext';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { db } from '../lib/firebase';
+import { collection, addDoc, getDocs, updateDoc, deleteDoc, doc, query, where } from 'firebase/firestore';
+import JSZip from 'jszip';
+import { saveAs } from 'file-saver';
 
-// Memoized Particles component
-const ParticlesBackground = ({ theme }) => {
-  const particleRef = useRef(null);
-
-  const particlesInit = async (engine) => {
-    await loadFull(engine);
-    particleRef.current = engine;
-  };
-
-  const particlesLoaded = (container) => {
-    console.log("Particles loaded", container);
-  };
-
-  const particleOptions = useMemo(
-    () => ({
-      fullScreen: { enable: true, zIndex: -1 },
-      background: { color: { value: theme === "dark" ? "#0A1D37" : "#E6F0FA" } },
-      fpsLimit: 60,
-      interactivity: {
-        detectsOn: "canvas",
-        events: { onClick: { enable: true, mode: "push" }, onHover: { enable: true, mode: "repulse" }, resize: true },
-        modes: { push: { quantity: 4 }, repulse: { distance: 100, duration: 0.4 } },
-      },
-      particles: {
-        color: { value: theme === "dark" ? "#4CAF50" : "#1E90FF" },
-        links: { color: theme === "dark" ? "#4CAF50" : "#1E90FF", distance: 150, enable: true, opacity: 0.3, width: 1 },
-        collisions: { enable: true },
-        move: { direction: "none", enable: true, outMode: "bounce", random: false, speed: 1, straight: false },
-        number: { density: { enable: true, area: 800 }, value: 50 },
-        opacity: { value: 0.4 },
-        shape: { type: "circle" },
-        size: { value: { min: 1, max: 4 } },
-      },
-      detectRetina: true,
-    }),
-    [theme]
-  );
-
-  return (
-    <ParticlesDynamic
-      id="tsparticles"
-      init={particlesInit}
-      loaded={particlesLoaded}
-      options={particleOptions}
-      className="absolute inset-0 z-[-1]"
-    />
-  );
-};
-
-const MemoizedParticlesBackground = React.memo(ParticlesBackground);
-
-export default function Notes() {
-  const [theme, setTheme] = useState("dark");
+export default function NotesApp() {
   const [notes, setNotes] = useState([]);
-  const [newNoteTitle, setNewNoteTitle] = useState("");
-  const [newNoteContent, setNewNoteContent] = useState("");
-  const [newNoteTags, setNewNoteTags] = useState([]);
-  const [selectedNote, setSelectedNote] = useState(null);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [recording, setRecording] = useState(false);
-  const [template, setTemplate] = useState("default");
-  const { scrollYProgress } = useScroll();
-  const controls = useAnimationControls();
-  const mediaRecorderRef = useRef(null);
-  const audioChunksRef = useRef([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery] = useDebounce(searchQuery, 300);
+  const [activeNote, setActiveNote] = useState(null);
+  const [title, setTitle] = useState('');
+  const [tags, setTags] = useState([]);
+  const [tagInput, setTagInput] = useState('');
+  const [date, setDate] = useState('');
+  const [category, setCategory] = useState('');
+  const [categories] = useState(['General', 'Lectures', 'Assignments', 'Exams']);
+  const [showNotes, setShowNotes] = useState(true);
+  const [isAutoSaving, setIsAutoSaving] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [sortBy, setSortBy] = useState('createdAt');
+  const [sortOrder, setSortOrder] = useState('desc');
+  const [filterTag, setFilterTag] = useState('');
+  const [previewNote, setPreviewNote] = useState(null);
+  const notesPerPage = 5;
+  const autoSaveTimeoutRef = useRef(null);
+  const { user, loading } = useAuth();
+  const router = useRouter();
 
+  // Tiptap Editor
+  const editor = useEditor({
+    extensions: [StarterKit],
+    content: '',
+    onUpdate: ({ editor }) => {
+      if (activeNote) {
+        clearTimeout(autoSaveTimeoutRef.current);
+        setIsAutoSaving(true);
+        autoSaveTimeoutRef.current = setTimeout(() => {
+          updateNote(true);
+          setIsAutoSaving(false);
+        }, 1000);
+      }
+    },
+  });
+
+  // Redirect to login if not authenticated
   useEffect(() => {
-    const savedTheme = localStorage.getItem("theme");
-    const savedNotes = localStorage.getItem("notes");
-    if (savedTheme) setTheme(savedTheme);
-    if (savedNotes) setNotes(JSON.parse(savedNotes));
-  }, []);
+    if (!loading && !user) {
+      router.push('/login');
+    }
+  }, [user, loading, router]);
 
+  // Load notes from Firestore
   useEffect(() => {
-    localStorage.setItem("theme", theme);
-  }, [theme]);
+    if (user) {
+      const fetchNotes = async () => {
+        try {
+          const q = query(collection(db, 'notes'), where('userId', '==', user.uid));
+          const querySnapshot = await getDocs(q);
+          const userNotes = querySnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }));
+          setNotes(userNotes);
+        } catch (error) {
+          console.error('Error fetching notes:', error);
+          toast.error('Failed to load notes.');
+        }
+      };
+      fetchNotes();
+    }
+  }, [user]);
 
-  const debouncedSaveNotes = useCallback(
-    debounce((updatedNotes) => {
-      localStorage.setItem("notes", JSON.stringify(updatedNotes));
-    }, 500),
-    []
+  // Update editor content when active note changes
+  useEffect(() => {
+    if (editor && activeNote) {
+      editor.commands.setContent(activeNote.content);
+      setTitle(activeNote.title);
+      setTags(activeNote.tags);
+      setDate(activeNote.date);
+      setCategory(activeNote.category);
+    } else if (editor) {
+      editor.commands.setContent('');
+      setTitle('');
+      setTags([]);
+      setDate('');
+      setCategory('');
+    }
+  }, [activeNote, editor]);
+
+  const addNote = async () => {
+    if (!title.trim() || !editor.getHTML().trim() || editor.getHTML() === '<p></p>') {
+      toast.error('Title and content are required!');
+      return;
+    }
+    const newNote = {
+      title,
+      content: editor.getHTML(),
+      tags,
+      date: date || new Date().toISOString().split('T')[0],
+      category: category || 'General',
+      createdAt: new Date().toISOString(),
+      pinned: false,
+      userId: user.uid
+    };
+    try {
+      const docRef = await addDoc(collection(db, 'notes'), newNote);
+      setNotes([{ id: docRef.id, ...newNote }, ...notes]);
+      toast.success('Note created!', { icon: '📝' });
+      resetForm();
+      setShowNotes(true);
+    } catch (error) {
+      console.error('Error adding note:', error);
+      toast.error('Failed to create note.');
+    }
+  };
+
+  const updateNote = useCallback(async (isAutoSave = false) => {
+    if (!title.trim() || !editor.getHTML().trim() || editor.getHTML() === '<p></p>') {
+      if (!isAutoSave) toast.error('Title and content are required!');
+      return;
+    }
+    const updatedNote = {
+      title,
+      content: editor.getHTML(),
+      tags,
+      date,
+      category,
+      updatedAt: new Date().toISOString(),
+      pinned: activeNote.pinned,
+      userId: user.uid
+    };
+    try {
+      const noteRef = doc(db, 'notes', activeNote.id);
+      await updateDoc(noteRef, updatedNote);
+      setNotes(notes.map(note =>
+        note.id === activeNote.id ? { id: activeNote.id, ...updatedNote } : note
+      ));
+      if (!isAutoSave) {
+        toast.success('Note updated!', { icon: '✅' });
+        resetForm();
+        setShowNotes(true);
+      }
+    } catch (error) {
+      console.error('Error updating note:', error);
+      toast.error('Failed to update note.');
+    }
+  }, [title, tags, date, category, activeNote, notes, editor, user.uid]);
+
+  const deleteNote = async (id) => {
+    try {
+      await deleteDoc(doc(db, 'notes', id));
+      setNotes(notes.filter(note => note.id !== id));
+      if (activeNote?.id === id) resetForm();
+      toast.success('Note deleted!', { icon: '🗑️' });
+    } catch (error) {
+      console.error('Error deleting note:', error);
+      toast.error('Failed to delete note.');
+    }
+  };
+
+  const pinNote = async (id) => {
+    try {
+      const note = notes.find(note => note.id === id);
+      const updatedNote = { ...note, pinned: !note.pinned };
+      const noteRef = doc(db, 'notes', id);
+      await updateDoc(noteRef, { pinned: !note.pinned });
+      setNotes(notes.map(n => (n.id === id ? updatedNote : n)));
+      toast.success(note.pinned ? 'Note unpinned!' : 'Note pinned!', { icon: '📌' });
+    } catch (error) {
+      console.error('Error pinning note:', error);
+      toast.error('Failed to pin note.');
+    }
+  };
+
+  const editNote = (note) => {
+    setActiveNote(note);
+    setShowNotes(false);
+  };
+
+  const resetForm = () => {
+    setActiveNote(null);
+    setTitle('');
+    setTags([]);
+    setDate('');
+    setTagInput('');
+    setCategory('');
+    if (editor) editor.commands.setContent('');
+  };
+
+  const startNewNote = () => {
+    resetForm();
+    setShowNotes(false);
+  };
+
+  const addTag = (e) => {
+    if (e.key === 'Enter' && tagInput.trim()) {
+      if (tags.includes(tagInput.trim())) {
+        toast.error('Tag already exists!');
+        return;
+      }
+      setTags([...tags, tagInput.trim()]);
+      setTagInput('');
+    }
+  };
+
+  const removeTag = (tag) => {
+    setTags(tags.filter(t => t !== tag));
+  };
+
+  const exportNote = async (note, format = 'md') => {
+    if (format === 'md') {
+      const blob = new Blob([
+        `# ${note.title}\n\n${note.content}\n\n**Tags**: ${note.tags.join(', ')}\n**Category**: ${note.category}\n**Date**: ${note.date}`
+      ], { type: 'text/markdown' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${note.title.replace(/\s+/g, '_')}.md`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success('Exported as Markdown!', { icon: '📄' });
+    } else if (format === 'pdf') {
+      const pdfDoc = await PDFDocument.create();
+      const page = pdfDoc.addPage();
+      const { width, height } = page.getSize();
+      const font = await pdfDoc.embedFont('Helvetica');
+      page.drawText(`Title: ${note.title}`, { x: 50, y: height - 50, size: 20, font });
+      page.drawText(note.content.replace(/<[^>]+>/g, ''), { x: 50, y: height - 100, size: 12, font, maxWidth: width - 100 });
+      page.drawText(`Tags: ${note.tags.join(', ')}`, { x: 50, y: 50, size: 10, font });
+      page.drawText(`Category: ${note.category}`, { x: 50, y: 30, size: 10, font });
+      page.drawText(`Date: ${note.date}`, { x: 50, y: 10, size: 10, font });
+      const pdfBytes = await pdfDoc.save();
+      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${note.title.replace(/\s+/g, '_')}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success('Exported as PDF!', { icon: '📑' });
+    }
+  };
+
+  const exportAllNotes = async () => {
+    const zip = new JSZip();
+    notes.forEach(note => {
+      zip.file(
+        `${note.title.replace(/\s+/g, '_')}.md`,
+        `# ${note.title}\n\n${note.content}\n\n**Tags**: ${note.tags.join(', ')}\n**Category**: ${note.category}\n**Date**: ${note.date}`
+      );
+    });
+    const content = await zip.generateAsync({ type: 'blob' });
+    saveAs(content, 'all_notes.zip');
+    toast.success('All notes exported as ZIP!', { icon: '📦' });
+  };
+
+  const shareNote = (note) => {
+    const shareData = btoa(JSON.stringify(note));
+    const url = `${window.location.origin}/notes?note=${shareData}`;
+    navigator.clipboard.writeText(url);
+    toast.success('Link copied!', { icon: '🔗' });
+  };
+
+  const applyTemplate = (template) => {
+    if (template === 'lecture') {
+      editor.commands.setContent(`
+        <h1>Lecture Notes</h1>
+        <p><strong>Topic</strong>: </p>
+        <p><strong>Key Points</strong>:</p>
+        <ul><li></li><li></li></ul>
+      `);
+      setTitle('Lecture Notes');
+    } else if (template === 'assignment') {
+      editor.commands.setContent(`
+        <h1>Assignment</h1>
+        <p><strong>Title</strong>: </p>
+        <p><strong>Requirements</strong>:</p>
+        <ul><li></li><li></li></ul>
+      `);
+      setTitle('Assignment');
+    }
+    toast.success('Template applied!', { icon: '📋' });
+  };
+
+  const getWordCount = () => {
+    if (!editor) return 0;
+    const text = editor.getText();
+    return text.split(/\s+/).filter(word => word.length > 0).length;
+  };
+
+  const getReadingTime = () => {
+    const words = getWordCount();
+    const minutes = Math.ceil(words / 200); // Average reading speed: 200 wpm
+    return minutes;
+  };
+
+  const allTags = useMemo(() => {
+    const tagSet = new Set();
+    notes.forEach(note => note.tags.forEach(tag => tagSet.add(tag)));
+    return Array.from(tagSet);
+  }, [notes]);
+
+  const filteredNotes = useMemo(() =>
+    notes
+      .filter(note =>
+        (note.title.toLowerCase().includes(debouncedSearchQuery.toLowerCase()) ||
+         note.content.toLowerCase().includes(debouncedSearchQuery.toLowerCase()) ||
+         note.tags.some(tag => tag.toLowerCase().includes(debouncedSearchQuery.toLowerCase()))) &&
+        (category ? note.category === category : true) &&
+        (filterTag ? note.tags.includes(filterTag) : true)
+      )
+      .sort((a, b) => {
+        if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+        const order = sortOrder === 'asc' ? 1 : -1;
+        if (sortBy === 'title') return order * a.title.localeCompare(b.title);
+        if (sortBy === 'date') return order * (new Date(a.date) - new Date(b.date));
+        return order * (new Date(b.createdAt) - new Date(a.createdAt));
+      }), [notes, debouncedSearchQuery, category, filterTag, sortBy, sortOrder]);
+
+  const paginatedNotes = filteredNotes.slice(
+    (currentPage - 1) * notesPerPage,
+    currentPage * notesPerPage
   );
 
-  useEffect(() => {
-    debouncedSaveNotes(notes);
-  }, [notes, debouncedSaveNotes]);
-
-  const quillModules = {
-    toolbar: [
-      [{ header: [1, 2, 3, false] }, { font: [] }],
-      ["bold", "italic", "underline", "strike"],
-      [{ list: "ordered" }, { list: "bullet" }, { indent: "-1" }, { indent: "+1" }],
-      ["link", "image", "code-block"],
-      [{ align: [] }, { color: [] }, { background: [] }],
-      ["clean"],
-    ],
-  };
-
-  const addNote = () => {
-    if (newNoteTitle.trim() || newNoteContent.trim()) {
-      const newNote = {
-        id: Date.now(),
-        title: newNoteTitle.trim() || "Untitled",
-        content: newNoteContent,
-        tags: newNoteTags,
-        createdAt: new Date().toISOString(),
-        modifiedAt: new Date().toISOString(),
-        pinned: false,
-        wordCount: newNoteContent.split(/\s+/).filter(Boolean).length,
-        audio: null,
-      };
-      setNotes([...notes, newNote]);
-      setNewNoteTitle("");
-      setNewNoteContent("");
-      setNewNoteTags([]);
-      setSelectedNote(newNote.id);
-    }
-  };
-
-  const updateNote = (id, title, content, tags = null) => {
-    setNotes(
-      notes.map((note) =>
-        note.id === id
-          ? {
-              ...note,
-              title,
-              content,
-              tags: tags !== null ? tags : note.tags,
-              modifiedAt: new Date().toISOString(),
-              wordCount: content.split(/\s+/).filter(Boolean).length,
-            }
-          : note
-      )
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center flex-col">
+        <div className="text-gray-600 dark:text-gray-300 text-lg">Loading...</div>
+      </div>
     );
-  };
-
-  const deleteNote = (id) => {
-    setNotes(notes.filter((note) => note.id !== id));
-    if (selectedNote === id) setSelectedNote(null);
-  };
-
-  const pinNote = (id) => {
-    setNotes(notes.map((note) => (note.id === id ? { ...note, pinned: !note.pinned } : note)));
-  };
-
-  const exportNotes = () => {
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(notes));
-    const downloadAnchorNode = document.createElement("a");
-    downloadAnchorNode.setAttribute("href", dataStr);
-    downloadAnchorNode.setAttribute("download", "notes.json");
-    document.body.appendChild(downloadAnchorNode);
-    downloadAnchorNode.click();
-    downloadAnchorNode.remove();
-  };
-
-  const importNotes = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        try {
-          const importedNotes = JSON.parse(event.target.result);
-          setNotes([...notes, ...importedNotes]);
-        } catch (error) {
-          alert("Error importing notes: Invalid JSON");
-        }
-      };
-      reader.readAsText(file);
-    }
-  };
-
-  const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaRecorderRef.current = new MediaRecorder(stream);
-      mediaRecorderRef.current.ondataavailable = (event) => audioChunksRef.current.push(event.data);
-      mediaRecorderRef.current.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
-        const audioUrl = URL.createObjectURL(audioBlob);
-        if (selectedNote) {
-          setNotes(
-            notes.map((note) =>
-              note.id === selectedNote ? { ...note, audio: audioUrl, modifiedAt: new Date().toISOString() } : note
-            )
-          );
-        } else {
-          const newNote = {
-            id: Date.now(),
-            title: "Voice Note " + new Date().toLocaleString(),
-            content: "",
-            tags: ["voice"],
-            createdAt: new Date().toISOString(),
-            modifiedAt: new Date().toISOString(),
-            pinned: false,
-            wordCount: 0,
-            audio: audioUrl,
-          };
-          setNotes([...notes, newNote]);
-          setSelectedNote(newNote.id);
-        }
-        audioChunksRef.current = [];
-        stream.getTracks().forEach((track) => track.stop());
-      };
-      mediaRecorderRef.current.start();
-      setRecording(true);
-    } catch (error) {
-      console.error("Error starting recording:", error);
-      alert("Failed to start recording. Please allow microphone access.");
-    }
-  };
-
-  const stopRecording = () => {
-    if (mediaRecorderRef.current) {
-      mediaRecorderRef.current.stop();
-      setRecording(false);
-    }
-  };
-
-  const applyTemplate = (type) => {
-    setTemplate(type);
-    switch (type) {
-      case "meeting":
-        setNewNoteContent("<h2>Meeting Notes</h2><p><strong>Date:</strong> <br><strong>Attendees:</strong> <br><strong>Agenda:</strong> <ul><li></li></ul></p>");
-        break;
-      case "todo":
-        setNewNoteContent("<h2>To-Do List</h2><ul><li>[ ] Task 1</li><li>[ ] Task 2</li></ul>");
-        break;
-      default:
-        setNewNoteContent("");
-    }
-  };
-
-  const filteredNotes = notes
-    .filter(
-      (note) =>
-        note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        note.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        note.tags.some((tag) => tag.toLowerCase().includes(searchQuery.toLowerCase()))
-    )
-    .sort((a, b) => (b.pinned - a.pinned) || new Date(b.modifiedAt) - new Date(a.modifiedAt));
-
-  const sidebarVariants = {
-    open: { x: 0, width: "20rem", transition: { duration: 0.5, ease: "easeOut" } },
-    closed: { x: "-100%", width: 0, transition: { duration: 0.5, ease: "easeIn" } },
-  };
-
-  const noteVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" } },
-    exit: { opacity: 0, scale: 0.95, transition: { duration: 0.3, ease: "easeIn" } },
-  };
-
-  const parallaxY = useTransform(scrollYProgress, [0, 1], [0, -100]);
+  }
 
   return (
-    <div className={`select-none min-h-screen overflow-x-hidden transition-colors duration-700 ${theme === "dark" ? "bg-gradient-to-br from-[#0A1D37] via-[#1A4068] to-[#2D5F8B]" : "bg-gradient-to-br from-[#E6F0FA] via-[#F0F5FF] to-[#D1E0F0]"} relative text-black dark:text-white flex font-sans`}>
-      <Head>
-        <title>Noteify - Ultimate Notes</title>
-        <meta name="description" content="The most detailed and feature-rich notes app ever." />
-      </Head>
+    <>
+      <style jsx>{`
+        :global(*) {
+          user-select: none;
+        }
+        .note-content, .tiptap-editor, .prose {
+          user-select: text;
+        }
+      `}</style>
+      <div className="flex flex-col min-h-screen bg-gradient-to-br from-blue-50 to-gray-50 dark:bg-gradient-to-br dark:from-gray-800 dark:to-gray-900 text-gray-900 dark:text-gray-100">
+        <Toaster
+          position="top-right"
+          toastOptions={{
+            duration: 2000,
+            style: {
+              background: '#fff',
+              color: '#333',
+              borderRadius: '8px',
+            },
+          }}
+        />
+        <main className="flex-1">
+          <div className="max-w-5xl mx-auto px-4 md:px-6 py-6">
+            {/* Header */}
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              className="flex justify-between items-center mb-6"
+            >
+              <Link href="/">
+                <h1 className="text-2xl font-bold text-blue-600 dark:text-blue-400 cursor-pointer hover:text-blue-700 dark:hover:text-blue-300 transition-colors">
+                  Noteify
+                </h1>
+              </Link>
+              <div className="flex items-center gap-4">
+                <motion.button
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                  onClick={exportAllNotes}
+                  className="px-3 py-1 text-sm font-medium text-white bg-green-500 hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-500 rounded-lg"
+                  title="Export All Notes"
+                >
+                  Export All
+                </motion.button>
+                <Link href="/settings">
+                  <motion.button
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
+                    className="p-2 rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600"
+                    title="Settings"
+                  >
+                    <Settings className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+                  </motion.button>
+                </Link>
+              </div>
+            </motion.div>
 
-      <MemoizedParticlesBackground theme={theme} />
+            {/* Main Content */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-6">
+              {/* Notes List */}
+              <AnimatePresence>
+                {showNotes && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <div className="flex items-center gap-4 mb-4 flex-wrap">
+                      <div className="flex items-center gap-2 flex-1">
+                        <Search className="w-5 h-5 text-gray-400 dark:text-gray-500" />
+                        <input
+                          type="text"
+                          placeholder="Search notes..."
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          className="w-full p-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
+                        />
+                      </div>
+                      <select
+                        value={sortBy}
+                        onChange={(e) => setSortBy(e.target.value)}
+                        className="p-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 focus:outline-none"
+                      >
+                        <option value="createdAt">Sort by Date Created</option>
+                        <option value="title">Sort by Title</option>
+                        <option value="date">Sort by Note Date</option>
+                      </select>
+                      <motion.button
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                        className="p-2 rounded-lg bg-gray-200 dark:bg-gray-700"
+                      >
+                        {sortOrder === 'asc' ? <SortAsc className="w-5 h-5" /> : <SortDesc className="w-5 h-5" />}
+                      </motion.button>
+                    </div>
+                    <div className="flex gap-2 mb-4 flex-wrap">
+                      {categories.map(cat => (
+                        <motion.button
+                          key={cat}
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => setCategory(cat === category ? '' : cat)}
+                          className={`px-3 py-1 rounded-full text-sm font-medium ${
+                            category === cat
+                              ? 'bg-blue-500 text-white dark:bg-blue-600'
+                              : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                          }`}
+                        >
+                          {cat}
+                        </motion.button>
+                      ))}
+                    </div>
+                    <div className="flex gap-2 mb-4 flex-wrap">
+                      {allTags.map(tag => (
+                        <motion.button
+                          key={tag}
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => setFilterTag(tag === filterTag ? '' : tag)}
+                          className={`px-3 py-1 rounded-full text-sm font-medium ${
+                            filterTag === tag
+                              ? 'bg-purple-500 text-white dark:bg-purple-600'
+                              : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                          }`}
+                        >
+                          {tag}
+                        </motion.button>
+                      ))}
+                    </div>
+                    <div className="grid gap-4">
+                      {paginatedNotes.length === 0 ? (
+                        <p className="text-gray-500 dark:text-gray-400 text-center">No notes found</p>
+                      ) : (
+                        paginatedNotes.map(note => (
+                          <motion.div
+                            key={note.id}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="p-4 bg-gray-50 dark:bg-gray-700 rounded-xl flex items-start gap-3 note-card hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+                          >
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <h3
+                                  className="font-semibold text-gray-800 dark:text-gray-100 truncate cursor-pointer hover:text-blue-600 dark:hover:text-blue-400"
+                                  onClick={() => setPreviewNote(note)}
+                                >
+                                  {note.title}
+                                </h3>
+                                {note.pinned && <Pin className="w-4 h-4 text-yellow-500" />}
+                              </div>
+                              <div
+                                className="note-content text-sm text-gray-500 dark:text-gray-400 line-clamp-2"
+                                dangerouslySetInnerHTML={{ __html: note.content }}
+                              />
+                              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{note.date}</p>
+                            </div>
+                            <div className="flex gap-2">
+                              <motion.button
+                                whileHover={{ scale: 1.1 }}
+                                whileTap={{ scale: 0.9 }}
+                                onClick={() => setPreviewNote(note)}
+                                className="p-2 text-blue-500 dark:text-blue-400"
+                                title="Preview"
+                              >
+                                <Eye className="w-4 h-4" />
+                              </motion.button>
+                              <motion.button
+                                whileHover={{ scale: 1.1 }}
+                                whileTap={{ scale: 0.9 }}
+                                onClick={() => pinNote(note.id)}
+                                className="p-2 text-yellow-500"
+                                title={note.pinned ? 'Unpin' : 'Pin'}
+                              >
+                                <Pin className="w-4 h-4" />
+                              </motion.button>
+                              <motion.button
+                                whileHover={{ scale: 1.1 }}
+                                whileTap={{ scale: 0.9 }}
+                                onClick={() => shareNote(note)}
+                                className="p-2 text-purple-500 dark:text-purple-400"
+                                title="Share"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.684 13.342C9.375 12.955 10.185 12.75 11 12.75s1.625.205 2.316.592m2.684-2.592l4-4m0 0l-4-4m4 4H7" />
+                                </svg>
+                              </motion.button>
+                              <motion.button
+                                whileHover={{ scale: 1.1 }}
+                                whileTap={{ scale: 0.9 }}
+                                onClick={() => exportNote(note, 'md')}
+                                className="p-2 text-green-500 dark:text-green-400"
+                                title="Export Markdown"
+                              >
+                                <Download className="w-4 h-4" />
+                              </motion.button>
+                              <motion.button
+                                whileHover={{ scale: 1.1 }}
+                                whileTap={{ scale: 0.9 }}
+                                onClick={() => editNote(note)}
+                                className="p-2 text-blue-500 dark:text-blue-400"
+                                title="Edit"
+                              >
+                                <Edit2 className="w-4 h-4" />
+                              </motion.button>
+                              <motion.button
+                                whileHover={{ scale: 1.1 }}
+                                whileTap={{ scale: 0.9 }}
+                                onClick={() => deleteNote(note.id)}
+                                className="p-2 text-red-500 dark:text-red-400"
+                                title="Delete"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </motion.button>
+                            </div>
+                          </motion.div>
+                        ))
+                      )}
+                    </div>
+                    {filteredNotes.length > notesPerPage && (
+                      <div className="flex justify-between mt-4">
+                        <motion.button
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
+                          disabled={currentPage === 1}
+                          className="p-2 rounded-lg bg-gray-200 dark:bg-gray-700 disabled:opacity-50"
+                        >
+                          <ChevronLeft className="w-5 h-5" />
+                        </motion.button>
+                        <span className="text-sm text-gray-600 dark:text-gray-400">
+                          Page {currentPage} of {Math.ceil(filteredNotes.length / notesPerPage)}
+                        </span>
+                        <motion.button
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => setCurrentPage(p => Math.min(p + 1, Math.ceil(filteredNotes.length / notesPerPage)))}
+                          disabled={currentPage === Math.ceil(filteredNotes.length / notesPerPage)}
+                          className="p-2 rounded-lg bg-gray-200 dark:bg-gray-700 disabled:opacity-50"
+                        >
+                          <ChevronRight className="w-5 h-5" />
+                        </motion.button>
+                      </div>
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
-      {/* Sidebar */}
-      <motion.aside
-        initial="open"
-        animate={sidebarOpen ? "open" : "closed"}
-        variants={sidebarVariants}
-        className="bg-gradient-to-b from-gray-100/90 to-gray-200/90 dark:from-gray-800/90 dark:to-gray-900/90 p-6 flex-shrink-0 shadow-2xl z-20 backdrop-blur-lg overflow-y-auto max-h-screen"
-      >
-        <div className="flex justify-between items-center mb-6">
-          <motion.h1
-            whileHover={{ scale: 1.05, color: theme === "dark" ? "#4CAF50" : "#1E90FF" }}
-            className="text-3xl font-extrabold tracking-tight"
-          >
-            Noteify
-          </motion.h1>
-          <motion.button
-            whileHover={{ rotate: 90 }}
-            whileTap={{ scale: 0.9 }}
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="text-2xl"
-          >
-            {sidebarOpen ? "✖" : "☰"}
-          </motion.button>
-        </div>
+              {/* Editor */}
+              <AnimatePresence>
+                {!showNotes && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <div className="flex justify-between items-center mb-4">
+                      <input
+                        type="text"
+                        placeholder="Note Title"
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
+                        className="w-full text-xl font-semibold bg-transparent focus:outline-none placeholder-gray-300 dark:placeholder-gray-500"
+                      />
+                      <div className="flex items-center gap-4">
+                        {isAutoSaving && (
+                          <motion.span
+                            animate={{ opacity: [0.5, 1, 0.5] }}
+                            transition={{ repeat: Infinity, duration: 1.5 }}
+                            className="text-sm text-gray-500 dark:text-gray-400"
+                          >
+                            Saving...
+                          </motion.span>
+                        )}
+                        <span className="text-sm text-gray-500 dark:text-gray-400">
+                          {getWordCount()} words (~{getReadingTime()} min)
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex gap-4 mb-4 flex-wrap">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+                        <input
+                          type="date"
+                          value={date}
+                          onChange={(e) => setDate(e.target.value)}
+                          className="p-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={category}
+                          onChange={(e) => setCategory(e.target.value)}
+                          className="p-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
+                        >
+                          <option value="">Category</option>
+                          {categories.map(cat => (
+                            <option key={cat} value={cat}>{cat}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Tag className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+                        <input
+                          type="text"
+                          placeholder="Tag (Enter)"
+                          value={tagInput}
+                          onChange={(e) => setTagInput(e.target.value)}
+                          onKeyDown={addTag}
+                          className="p-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex gap-2 mb-4 flex-wrap">
+                      {tags.map(tag => (
+                        <motion.span
+                          key={tag}
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          className="flex items-center gap-1 text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300 px-2 py-1 rounded-full"
+                        >
+                          {tag}
+                          <button
+                            onClick={() => removeTag(tag)}
+                            className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200"
+                          >
+                            ×
+                          </button>
+                        </motion.span>
+                      ))}
+                    </div>
+                    <div className="mb-4">
+                      <div className="flex gap-2">
+                        <motion.button
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => applyTemplate('lecture')}
+                          className="px-3 py-1 text-sm font-medium text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg"
+                        >
+                          Lecture
+                        </motion.button>
+                        <motion.button
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => applyTemplate('assignment')}
+                          className="px-3 py-1 text-sm font-medium text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg"
+                        >
+                          Assignment
+                        </motion.button>
+                      </div>
+                    </div>
+                    <EditorContent editor={editor} className="tiptap-editor h-64 border border-gray-200 dark:border-gray-600 rounded-lg p-2 bg-white dark:bg-gray-700" />
+                    <div className="flex justify-end gap-2 mt-4">
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => { resetForm(); setShowNotes(true); }}
+                        className="px-4 py-2 text-gray-600 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg"
+                      >
+                        Back
+                      </motion.button>
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={activeNote ? updateNote : addNote}
+                        className="px-4 py-2 text-white bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-500 rounded-lg flex items-center gap-2"
+                      >
+                        {activeNote ? (
+                          <>
+                            <Edit2 className="w-4 h-4" /> Save
+                          </>
+                        ) : (
+                          <>
+                            <Plus className="w-4 h-4" /> Add
+                          </>
+                        )}
+                      </motion.button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
 
-        <motion.div
-          className="flex items-center bg-white/20 dark:bg-gray-700/20 p-2 rounded-lg mb-4"
-          whileHover={{ scale: 1.02 }}
-        >
-          <FaSearch className="mr-2" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search notes..."
-            className="w-full bg-transparent focus:outline-none"
-          />
-        </motion.div>
-
-        <motion.button
-          whileHover={{ scale: 1.05, boxShadow: "0 6px 20px rgba(0, 0, 0, 0.2)" }}
-          whileTap={{ scale: 0.95 }}
-          onClick={addNote}
-          className="w-full bg-gradient-to-r from-[#1E90FF] to-[#4CAF50] text-white py-3 rounded-xl font-semibold shadow-md hover:from-[#1864AB] hover:to-[#3D8B40] transition-all duration-300 mb-4"
-        >
-          + New Note
-        </motion.button>
-
-        <div className="flex flex-wrap gap-2 mb-4">
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={exportNotes}
-            className="flex-1 bg-gray-200 dark:bg-gray-700 p-2 rounded-lg flex items-center justify-center"
-          >
-            <FaDownload className="mr-1" /> Export
-          </motion.button>
-          <label className="flex-1 bg-gray-200 dark:bg-gray-700 p-2 rounded-lg flex items-center justify-center cursor-pointer">
-            <FaUpload className="mr-1" /> Import
-            <input type="file" accept=".json" onChange={importNotes} className="hidden" />
-          </label>
-        </div>
-
-        <div className="mb-4">
-          <label className="text-sm font-medium mb-1 block">Template:</label>
-          <select
-            value={template}
-            onChange={(e) => applyTemplate(e.target.value)}
-            className="w-full bg-white/20 dark:bg-gray-700/20 p-2 rounded-lg focus:outline-none"
-          >
-            <option value="default">Default</option>
-            <option value="meeting">Meeting Notes</option>
-            <option value="todo">To-Do List</option>
-          </select>
-        </div>
-
-        <ul className="space-y-3">
-          <AnimatePresence>
-            {filteredNotes.map((note) => (
-              <motion.li
-                key={note.id}
-                initial="hidden"
-                animate="visible"
-                exit="exit"
-                variants={noteVariants}
-                className={`p-4 rounded-xl cursor-pointer transition-all duration-300 ${selectedNote === note.id ? "bg-gradient-to-r from-[#1E90FF]/20 to-[#4CAF50]/20 shadow-md" : "bg-white/10 dark:bg-gray-700/10 hover:bg-white/20 dark:hover:bg-gray-700/20"}`}
-                onClick={() => setSelectedNote(note.id)}
-              >
-                <div className="flex justify-between items-center">
-                  <div>
-                    <h3 className="font-semibold truncate max-w-[14rem]">{note.title}</h3>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {new Date(note.modifiedAt).toLocaleString()} • {note.wordCount} words
-                    </p>
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {note.tags.map((tag) => (
-                        <span key={tag} className="text-xs bg-gray-300/50 dark:bg-gray-600/50 px-2 py-1 rounded-full">
+            {/* Preview Modal */}
+            <AnimatePresence>
+              {previewNote && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+                  onClick={() => setPreviewNote(null)}
+                >
+                  <motion.div
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0.8, opacity: 0 }}
+                    className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto"
+                    onClick={e => e.stopPropagation()}
+                  >
+                    <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-4">{previewNote.title}</h2>
+                    <div className="prose dark:prose-invert" dangerouslySetInnerHTML={{ __html: previewNote.content }} />
+                    <div className="flex gap-2 mt-4">
+                      {previewNote.tags.map(tag => (
+                        <span key={tag} className="text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300 px-2 py-1 rounded-full">
                           {tag}
                         </span>
                       ))}
                     </div>
-                  </div>
-                  <motion.button
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
-                    onClick={(e) => { e.stopPropagation(); pinNote(note.id); }}
-                    className={`text-xl ${note.pinned ? "text-yellow-400" : "text-gray-400"}`}
-                  >
-                    <FaPin />
-                  </motion.button>
-                </div>
-              </motion.li>
-            ))}
-          </AnimatePresence>
-        </ul>
-      </motion.aside>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Category: {previewNote.category}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Date: {previewNote.date}</p>
+                    <div className="flex justify-end gap-2 mt-4">
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => setPreviewNote(null)}
+                        className="px-4 py-2 text-gray-600 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg"
+                      >
+                        Close
+                      </motion.button>
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => { editNote(previewNote); setPreviewNote(null); }}
+                        className="px-4 py-2 text-white bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-500 rounded-lg"
+                      >
+                        Edit
+                      </motion.button>
+                    </div>
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
-      {/* Main Content */}
-      <main className="flex-1 p-6 md:p-8 overflow-y-auto z-20">
-        <motion.div
-          className="flex justify-between items-center mb-6 sticky top-0 bg-gradient-to-r from-gray-100/80 to-gray-200/80 dark:from-gray-900/80 dark:to-gray-800/80 py-4 px-6 rounded-xl shadow-lg z-30 backdrop-blur-lg"
-          style={{ y: parallaxY }}
-        >
-          <h2 className="text-4xl font-bold tracking-tight">Notes</h2>
-          <div className="flex gap-4">
-            <motion.button
-              whileHover={{ scale: 1.1, rotate: 360 }}
-              whileTap={{ scale: 0.9 }}
-              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-              className="p-3 rounded-full bg-white/20 dark:bg-gray-700/20 text-2xl shadow-md"
-            >
-              {theme === "dark" ? "☀️" : "🌙"}
-            </motion.button>
+            {/* Floating Add Button */}
             <motion.button
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
-              className="p-3 rounded-full bg-white/20 dark:bg-gray-700/20 text-2xl shadow-md"
-              onClick={recording ? stopRecording : startRecording}
+              onClick={startNewNote}
+              className="fixed bottom-6 right-6 p-4 bg-blue-500 text-white rounded-full shadow-lg dark:bg-blue-600"
+              initial={{ opacity: 0, scale: 0 }}
+              animate={{ opacity: 1, scale: 1 }}
+              title="New Note"
             >
-              <FaMicrophone className={recording ? "text-red-500 animate-pulse" : ""} />
+              <Plus className="w-6 h-6" />
             </motion.button>
           </div>
-        </motion.div>
+        </main>
 
-        {/* Note Editor */}
-        {selectedNote ? (
-          <motion.div
-            initial="hidden"
-            animate="visible"
-            variants={noteVariants}
-            className="max-w-4xl mx-auto bg-white/10 dark:bg-gray-900/10 p-6 md:p-8 rounded-2xl shadow-2xl backdrop-blur-md border border-white/10 dark:border-gray-700/10"
-          >
-            {notes
-              .filter((note) => note.id === selectedNote)
-              .map((note) => (
-                <div key={note.id}>
-                  <input
-                    type="text"
-                    value={note.title}
-                    onChange={(e) => updateNote(note.id, e.target.value, note.content)}
-                    placeholder="Untitled"
-                    className="w-full p-4 mb-6 text-4xl font-bold bg-transparent focus:outline-none placeholder-gray-400 dark:placeholder-gray-500 border-b border-gray-300/50 dark:border-gray-600/50 transition-all duration-300"
-                  />
-                  <div className="flex flex-wrap gap-2 mb-4">
-                    {note.tags.map((tag) => (
-                      <span key={tag} className="bg-gradient-to-r from-[#1E90FF]/20 to-[#4CAF50]/20 px-3 py-1 rounded-full text-sm">
-                        {tag}
-                      </span>
-                    ))}
-                    <input
-                      type="text"
-                      placeholder="Add tag..."
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && e.target.value.trim()) {
-                          updateNote(note.id, note.title, note.content, [...note.tags, e.target.value.trim()]);
-                          e.target.value = "";
-                        }
-                      }}
-                      className="bg-transparent p-1 text-sm focus:outline-none border-b border-gray-300/50 dark:border-gray-600/50"
-                    />
-                  </div>
-                  <ReactQuill
-                    value={note.content}
-                    onChange={(content) => updateNote(note.id, note.title, content)}
-                    modules={quillModules}
-                    theme="snow"
-                    className="bg-transparent text-black dark:text-white editor-clean rounded-lg shadow-inner"
-                    placeholder="Start typing your note..."
-                  />
-                  {note.audio && (
-                    <audio controls src={note.audio} className="mt-4 w-full rounded-lg shadow-md" />
-                  )}
-                  <div className="flex justify-between items-center mt-6 text-sm text-gray-500 dark:text-gray-400">
-                    <p>Created: {new Date(note.createdAt).toLocaleString()}</p>
-                    <p>Modified: {new Date(note.modifiedAt).toLocaleString()}</p>
-                    <p>{note.wordCount} words</p>
-                  </div>
-                  <motion.button
-                    whileHover={{ scale: 1.05, boxShadow: "0 6px 20px rgba(220, 38, 38, 0.3)" }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => deleteNote(note.id)}
-                    className="mt-4 bg-red-600 text-white px-6 py-2 rounded-xl font-semibold hover:bg-red-700 transition-all duration-300 shadow-md"
-                  >
-                    Delete Note
-                  </motion.button>
-                </div>
-              ))}
-          </motion.div>
-        ) : (
-          <motion.div
-            initial="hidden"
-            animate="visible"
-            variants={noteVariants}
-            className="max-w-4xl mx-auto bg-white/10 dark:bg-gray-900/10 p-6 md:p-8 rounded-2xl shadow-2xl backdrop-blur-md border border-white/10 dark:border-gray-700/10"
-          >
-            <input
-              type="text"
-              value={newNoteTitle}
-              onChange={(e) => setNewNoteTitle(e.target.value)}
-              placeholder="Note Title"
-              className="w-full p-4 mb-6 text-4xl font-bold bg-transparent focus:outline-none placeholder-gray-400 dark:placeholder-gray-500 border-b border-gray-300/50 dark:border-gray-600/50 transition-all duration-300"
-            />
-            <div className="flex flex-wrap gap-2 mb-4">
-              {newNoteTags.map((tag) => (
-                <span key={tag} className="bg-gradient-to-r from-[#1E90FF]/20 to-[#4CAF50]/20 px-3 py-1 rounded-full text-sm">
-                  {tag}
-                </span>
-              ))}
-              <input
-                type="text"
-                placeholder="Add tag..."
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && e.target.value.trim()) {
-                    setNewNoteTags([...newNoteTags, e.target.value.trim()]);
-                    e.target.value = "";
-                  }
-                }}
-                className="bg-transparent p-1 text-sm focus:outline-none border-b border-gray-300/50 dark:border-gray-600/50"
-              />
-            </div>
-            <ReactQuill
-              value={newNoteContent}
-              onChange={setNewNoteContent}
-              modules={quillModules}
-              theme="snow"
-              placeholder="Start typing your note..."
-              className="bg-transparent text-black dark:text-white editor-clean rounded-lg shadow-inner"
-            />
-            <motion.button
-              whileHover={{ scale: 1.05, boxShadow: "0 6px 20px rgba(0, 0, 0, 0.2)" }}
-              whileTap={{ scale: 0.95 }}
-              onClick={addNote}
-              className="mt-6 bg-gradient-to-r from-[#1E90FF] to-[#4CAF50] text-white px-6 py-3 rounded-xl font-semibold hover:from-[#1864AB] hover:to-[#3D8B40] transition-all duration-300 shadow-md"
-            >
-              Save Note
-            </motion.button>
-          </motion.div>
-        )}
-      </main>
-
-      {/* Global Styles */}
-      <style jsx global>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Roboto+Mono:wght@400;700&display=swap');
-
-        body {
-          font-family: 'Inter', sans-serif;
-          margin: 0;
-          padding: 0;
-          overflow-x: hidden;
-        }
-
-        ::-webkit-scrollbar {
-          width: 8px;
-        }
-
-        ::-webkit-scrollbar-track {
-          background: transparent;
-        }
-
-        ::-webkit-scrollbar-thumb {
-          background: rgba(107, 114, 128, 0.5);
-          border-radius: 4px;
-        }
-
-        .dark ::-webkit-scrollbar-thumb {
-          background: rgba(75, 85, 99, 0.5);
-        }
-
-        .ql-toolbar.ql-snow {
-          background: rgba(255, 255, 255, 0.9);
-          border: none;
-          padding: 12px;
-          border-radius: 12px 12px 0 0;
-          box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-          backdrop-blur-md;
-        }
-
-        .dark .ql-toolbar.ql-snow {
-          background: rgba(31, 41, 55, 0.9);
-          box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
-        }
-
-        .ql-container.ql-snow {
-          border: none;
-          background: transparent;
-          border-radius: 0 0 12px 12px;
-          box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-        }
-
-        .dark .ql-container.ql-snow {
-          box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-        }
-
-        .editor-clean .ql-container {
-          background: transparent !important;
-        }
-
-        .ql-editor {
-          min-height: 400px;
-          padding: 20px;
-          font-size: 1.25rem;
-          line-height: 1.8;
-          color: #000000;
-          background: transparent;
-          font-family: 'Roboto Mono', monospace;
-        }
-
-        .dark .ql-editor {
-          color: #ffffff;
-        }
-
-        .ql-editor::before {
-          color: #9ca3af;
-          font-style: normal;
-          font-family: 'Inter', sans-serif;
-        }
-
-        .dark .ql-editor::before {
-          color: #6b7280;
-        }
-
-        @media (max-width: 768px) {
-          aside {
-            position: fixed;
-            height: 100vh;
-            width: 16rem !important;
-          }
-          main {
-            padding: 4rem 1rem 1rem;
-          }
-          .ql-editor {
-            min-height: 300px;
-            font-size: 1rem;
-          }
-        }
-      `}</style>
-    </div>
+        {/* Footer */}
+        <footer className="bg-gray-100 dark:bg-gray-900 py-4 mt-auto">
+          <div className="max-w-5xl mx-auto px-4 md:px-6 text-center">
+            <p className="text-gray-600 dark:text-gray-400 text-sm font-bold">
+              © {new Date().getFullYear()} Noteify. All rights reserved.
+            </p>
+          </div>
+        </footer>
+      </div>
+    </>
   );
 }
