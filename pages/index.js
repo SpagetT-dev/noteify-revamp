@@ -1,40 +1,50 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { gsap } from 'gsap';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { CloudIcon, PencilIcon, MagnifyingGlassIcon, UserGroupIcon, DocumentTextIcon, ShieldCheckIcon, LockClosedIcon, ShareIcon, ClockIcon } from '@heroicons/react/24/outline';
+import { ScrollTrigger, MotionPathPlugin } from 'gsap/all';
+import { CloudIcon, PencilIcon, MagnifyingGlassIcon, UserGroupIcon, DocumentTextIcon, ShieldCheckIcon, LockClosedIcon, ShareIcon, ClockIcon, StarIcon, MoonIcon, SunIcon } from '@heroicons/react/24/outline';
 import Link from 'next/link';
 
-gsap.registerPlugin(ScrollTrigger);
+gsap.registerPlugin(ScrollTrigger, MotionPathPlugin);
 
 export default function Home() {
   const heroRef = useRef(null);
   const featuresRef = useRef(null);
+  const testimonialsRef = useRef(null);
   const pricingRef = useRef(null);
+  const ctaRef = useRef(null);
+  const [isDarkMode, setIsDarkMode] = useState(false);
 
   useEffect(() => {
+    // Theme Handling
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+
     // Hero Section Animations
     gsap.fromTo(
       '.hero-text span',
-      { opacity: 0, y: 20 },
+      { opacity: 0, y: 40 },
       {
         opacity: 1,
         y: 0,
-        duration: 0.8,
-        stagger: 0.1,
-        ease: 'power3.out',
+        duration: 1.2,
+        stagger: 0.12,
+        ease: 'power4.out',
       }
     );
     gsap.fromTo(
       '.hero-subtitle',
-      { opacity: 0, scale: 0.8 },
+      { opacity: 0, scale: 0.85 },
       {
         opacity: 1,
         scale: 1,
-        duration: 1,
-        delay: 0.5,
-        ease: 'elastic.out(1, 0.5)',
+        duration: 1.4,
+        delay: 0.7,
+        ease: 'elastic.out(1, 0.6)',
       }
     );
     gsap.fromTo(
@@ -43,67 +53,91 @@ export default function Home() {
       {
         scale: 1,
         opacity: 1,
-        duration: 0.8,
-        delay: 1,
+        duration: 1,
+        delay: 1.3,
         ease: 'bounce.out',
       }
     );
-    gsap.to('.hero-button', {
-      scale: 1.1,
-      duration: 0.5,
-      repeat: -1,
-      yoyo: true,
-      ease: 'sine.inOut',
-      paused: true,
-      onHover: () => gsap.play(),
-      onHoverEnd: () => gsap.pause(),
-    });
 
     // Navbar Animations
     gsap.fromTo(
       '.nav-link',
-      { opacity: 0, x: -20 },
+      { opacity: 0, y: -30 },
       {
         opacity: 1,
-        x: 0,
-        duration: 0.6,
-        stagger: 0.1,
-        delay: 0.3,
-        ease: 'power2.out',
+        y: 0,
+        duration: 0.8,
+        stagger: 0.15,
+        delay: 0.5,
+        ease: 'power3.out',
       }
     );
+    gsap.to('.navbar', {
+      scale: 0.95,
+      y: 10,
+      ease: 'none',
+      scrollTrigger: {
+        trigger: '#home',
+        start: 'top top',
+        end: 'bottom top',
+        scrub: true,
+      },
+    });
+
+    // Micro-interactions for Navbar Links
     document.querySelectorAll('.nav-link').forEach((link) => {
       link.addEventListener('mouseenter', () => {
-        gsap.to(link, { scale: 1, color: '#64748b', duration: 0.1 });
+        gsap.to(link, { scale: 1.1, color: '#60a5fa', duration: 0.3 });
       });
       link.addEventListener('mouseleave', () => {
-        gsap.to(link, { scale: 1, color: '#fff', duration: 0.3 });
+        gsap.to(link, { scale: 1, color: isDarkMode ? '#e5e7eb' : '#ffffff', duration: 0.3 });
       });
+    });
+
+    // Parallax and Motion Path for Hero
+    gsap.to('.hero-bg', {
+      y: 300,
+      ease: 'none',
+      scrollTrigger: {
+        trigger: '#home',
+        start: 'top top',
+        end: 'bottom top',
+        scrub: true,
+      },
+    });
+    gsap.to('.hero-button', {
+      motionPath: {
+        path: [{ x: 0, y: 0 }, { x: 10, y: -10 }, { x: 0, y: 0 }],
+        curviness: 1.5,
+      },
+      duration: 3,
+      repeat: -1,
+      ease: 'sine.inOut',
     });
 
     // Features Section Animations
     gsap.fromTo(
       '.features-heading',
-      { opacity: 0, x: -50 },
+      { opacity: 0, x: -80 },
       {
         opacity: 1,
         x: 0,
-        duration: 1,
-        ease: 'power3.out',
-        scrollTrigger: { trigger: '#features', start: 'top 80%' },
+        duration: 1.4,
+        ease: 'power4.out',
+        scrollTrigger: { trigger: '#features', start: 'top 70%' },
       }
     );
     gsap.fromTo(
       '.card',
-      { opacity: 0, y: 30, rotation: -5 },
+      { opacity: 0, y: 50, rotation: -4 },
       {
         opacity: 1,
         y: 0,
         rotation: 0,
-        duration: 0.8,
-        stagger: 0.2,
-        ease: 'power3.out',
-        scrollTrigger: { trigger: '#features', start: 'top 80%' },
+        duration: 1.2,
+        stagger: 0.3,
+        ease: 'power4.out',
+        scrollTrigger: { trigger: '#features', start: 'top 70%' },
       }
     );
     gsap.fromTo(
@@ -112,57 +146,69 @@ export default function Home() {
       {
         scale: 1,
         opacity: 1,
-        duration: 0.8,
-        stagger: 0.2,
-        ease: 'bounce.out',
-        scrollTrigger: { trigger: '#features', start: 'top 80%' },
-      }
-    );
-    gsap.fromTo(
-      '.learn-more',
-      { opacity: 0, y: 10 },
-      {
-        opacity: 1,
-        y: 0,
-        duration: 0.6,
-        stagger: 0.2,
-        delay: 0.5,
-        ease: 'power2.out',
-        scrollTrigger: { trigger: '#features', start: 'top 80%' },
+        duration: 1.2,
+        stagger: 0.3,
+        ease: 'elastic.out(1, 0.6)',
+        scrollTrigger: { trigger: '#features', start: 'top 70%' },
       }
     );
     document.querySelectorAll('.card').forEach((card) => {
       card.addEventListener('mouseenter', () => {
-        gsap.to(card, { rotation: 3, duration: 0.3, ease: 'power2.out' });
+        gsap.to(card, { scale: 1.04, rotation: 2, duration: 0.5, ease: 'power3.out', boxShadow: '0 15px 30px rgba(0, 0, 0, 0.2)' });
       });
       card.addEventListener('mouseleave', () => {
-        gsap.to(card, { rotation: 0, duration: 0.3, ease: 'power2.out' });
+        gsap.to(card, { scale: 1, rotation: 0, duration: 0.5, ease: 'power3.out', boxShadow: '0 10px 20px rgba(0, 0, 0, 0.1)' });
       });
     });
+
+    // Testimonials Section Animations
+    gsap.fromTo(
+      '.testimonials-heading',
+      { opacity: 0, y: -60 },
+      {
+        opacity: 1,
+        y: 0,
+        duration: 1.4,
+        ease: 'power4.out',
+        scrollTrigger: { trigger: '#testimonials', start: 'top 70%' },
+      }
+    );
+    gsap.fromTo(
+      '.testimonial-card',
+      { opacity: 0, y: 60 },
+      {
+        opacity: 1,
+        y: 0,
+        duration: 1.2,
+        stagger: 0.4,
+        ease: 'power4.out',
+        scrollTrigger: { trigger: '#testimonials', start: 'top 70%' },
+      }
+    );
 
     // Pricing Section Animations
     gsap.fromTo(
       '.pricing-heading',
-      { opacity: 0, y: -50 },
+      { opacity: 0, y: -80 },
       {
         opacity: 1,
         y: 0,
-        duration: 1,
+        duration: 1.4,
         ease: 'bounce.out',
-        scrollTrigger: { trigger: '#pricing', start: 'top 80%' },
+        scrollTrigger: { trigger: '#pricing', start: 'top 70%' },
       }
     );
     gsap.fromTo(
       '.pricing-card',
-      { opacity: 0, y: 30, rotation: 5 },
+      { opacity: 0, y: 50, rotation: 5 },
       {
         opacity: 1,
         y: 0,
         rotation: 0,
-        duration: 0.8,
-        stagger: 0.2,
-        ease: 'power3.out',
-        scrollTrigger: { trigger: '#pricing', start: 'top 80%' },
+        duration: 1.2,
+        stagger: 0.3,
+        ease: 'power4.out',
+        scrollTrigger: { trigger: '#pricing', start: 'top 70%' },
       }
     );
     gsap.fromTo(
@@ -171,10 +217,10 @@ export default function Home() {
       {
         scale: 1,
         opacity: 1,
-        duration: 0.8,
-        stagger: 0.2,
-        ease: 'elastic.out(1, 0.5)',
-        scrollTrigger: { trigger: '#pricing', start: 'top 80%' },
+        duration: 1.2,
+        stagger: 0.3,
+        ease: 'elastic.out(1, 0.6)',
+        scrollTrigger: { trigger: '#pricing', start: 'top 70%' },
       }
     );
     gsap.fromTo(
@@ -183,40 +229,52 @@ export default function Home() {
       {
         scale: 1,
         opacity: 1,
-        duration: 0.8,
-        delay: 0.5,
+        duration: 1,
+        delay: 0.7,
         ease: 'bounce.out',
-        scrollTrigger: { trigger: '#pricing', start: 'top 80%' },
+        scrollTrigger: { trigger: '#pricing', start: 'top 70%' },
       }
     );
-    gsap.fromTo(
-      '.choose-plan',
-      { scale: 0.8, opacity: 0 },
-      {
-        scale: 1,
-        opacity: 1,
-        duration: 0.8,
-        stagger: 0.2,
-        ease: 'power3.out',
-        scrollTrigger: { trigger: '#pricing', start: 'top 80%' },
-      }
-    );
-    document.querySelectorAll('.choose-plan').forEach((btn) => {
-      gsap.to(btn, {
-        scale: 1.05,
-        duration: 0.5,
-        repeat: -1,
-        yoyo: true,
-        ease: 'sine.inOut',
-        paused: true,
+    document.querySelectorAll('.pricing-card').forEach((card) => {
+      card.addEventListener('mouseenter', () => {
+        gsap.to(card, { scale: 1.04, y: -15, duration: 0.5, ease: 'power3.out', boxShadow: '0 15px 30px rgba(0, 0, 0, 0.2)' });
       });
-      btn.addEventListener('mouseenter', () => gsap.play());
-      btn.addEventListener('mouseleave', () => gsap.pause());
+      card.addEventListener('mouseleave', () => {
+        gsap.to(card, { scale: 1, y: 0, duration: 0.5, ease: 'power3.out', boxShadow: '0 10px 20px rgba(0, 0, 0, 0.1)' });
+      });
     });
 
-    // Background Color Transitions
+    // CTA Banner Animation
+    gsap.fromTo(
+      '.cta-banner',
+      { opacity: 0, y: 100 },
+      {
+        opacity: 1,
+        y: 0,
+        duration: 1.4,
+        ease: 'power4.out',
+        scrollTrigger: { trigger: '#cta', start: 'top 80%' },
+      }
+    );
+
+    // Footer Animation
+    gsap.fromTo(
+      '.footer',
+      { opacity: 0, y: 80 },
+      {
+        opacity: 1,
+        y: 0,
+        duration: 1.4,
+        ease: 'power4.out',
+        scrollTrigger: { trigger: 'footer', start: 'top 80%' },
+      }
+    );
+
+    // Background Gradient Transitions
     gsap.to('body', {
-      backgroundColor: '#94a3b8',
+      background: isDarkMode
+        ? 'linear-gradient(180deg, #1e293b, #475569)'
+        : 'linear-gradient(180deg, #1e40af, #60a5fa)',
       duration: 1,
       ease: 'none',
       scrollTrigger: {
@@ -227,7 +285,9 @@ export default function Home() {
       },
     });
     gsap.to('body', {
-      backgroundColor: '#64748b',
+      background: isDarkMode
+        ? 'linear-gradient(180deg, #475569, #1e293b)'
+        : 'linear-gradient(180deg, #60a5fa, #1e3a8a)',
       duration: 1,
       ease: 'none',
       scrollTrigger: {
@@ -238,7 +298,7 @@ export default function Home() {
       },
     });
 
-    // Cleanup event listeners
+    // Cleanup
     return () => {
       document.querySelectorAll('.nav-link').forEach((link) => {
         link.removeEventListener('mouseenter', () => {});
@@ -248,294 +308,215 @@ export default function Home() {
         card.removeEventListener('mouseenter', () => {});
         card.removeEventListener('mouseleave', () => {});
       });
-      document.querySelectorAll('.choose-plan').forEach((btn) => {
-        btn.removeEventListener('mouseenter', () => {});
-        btn.removeEventListener('mouseleave', () => {});
+      document.querySelectorAll('.pricing-card').forEach((card) => {
+        card.removeEventListener('mouseenter', () => {});
+        card.removeEventListener('mouseleave', () => {});
       });
+      ScrollTrigger.getAll().forEach((trigger) => trigger.kill());
     };
-  }, []);
+  }, [isDarkMode]);
 
   return (
-    <div className="bg-slate-400 font-inter transition-colors duration-500 select-none" ref={heroRef}>
-      <style jsx global>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Poppins:wght@300;500&display=swap');
+    <div className="relative min-h-screen font-inter text-gray-900 dark:text-gray-100 transition-colors duration-500" ref={heroRef}>
+      {/* Background */}
+      <div className="hero-bg absolute inset-0 bg-gradient-to-b from-blue-900/50 to-blue-500/30 dark:from-gray-900/50 dark:to-gray-700/30 z-[-1]" />
 
-        .dynamic-island {
-          background-color: rgba(141, 214, 219, 0.83);
-          color: #fff;
-          border-radius: 9999px;
-          padding: 0.75rem 1.5rem;
-          display: flex;
-          align-items: center;
-          gap: 1.5rem;
-          box-shadow: 0 10px 6px rgba(129, 121, 121, 0.2);
-          transition: all 0.3s ease;
-          position: relative;
-          left: 50%;
-          transform: translateX(-50%);
-          width: fit-content;
-        }
-        .dynamic-island:hover {
-          padding-left: 2rem;
-          padding-right: 2rem;
-        }
-        .hero-text {
-          font-size: 3rem;
-          line-height: 1.2;
-          font-weight: 700;
-          background-clip: text;
-          -webkit-background-clip: text;
-          color: transparent;
-          background-image: linear-gradient(to right, rgb(141, 214, 219), rgb(141, 214, 219));
-        }
-        @media (min-width: 768px) {
-          .hero-text {
-            font-size: 4.5rem;
-          }
-        }
-        .card, .pricing-card {
-          background-color: #fff;
-          border-radius: 1rem;
-          box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
-          padding: 1.5rem;
-          transform: translateY(0);
-          transition: all 0.5s ease;
-        }
-        .card:hover, .pricing-card:hover {
-          transform: scale(1.05);
-        }
-        body {
-          font-family: 'Inter', sans-serif;
-        }
-      `}</style>
-
-      {/* Dynamic Island Navbar */}
-      <nav className="fixed top-4 z-50 dynamic-island">
-        <a href="#home" className="nav-link transition-colors">
-          Home
-        </a>
-        <a href="#features" className="nav-link transition-colors">
-          Features
-        </a>
-        <a href="#pricing" className="nav-link transition-colors">
-          Pricing
-        </a>
-        <a href="#contact" className="nav-link transition-colors">
-          Contact
-        </a>
+      {/* Navbar */}
+      <nav className="navbar fixed top-6 left-1/2 transform -translate-x-1/2 z-50 bg-blue-900/80 dark:bg-gray-800/80 backdrop-blur-lg text-white rounded-full px-8 py-4 flex items-center gap-8 shadow-xl transition-all duration-300">
+        <Link href="#home" className="nav-link hover:text-blue-400 dark:hover:text-blue-300 transition-colors">Home</Link>
+        <Link href="#features" className="nav-link hover:text-blue-400 dark:hover:text-blue-300 transition-colors">Features</Link>
+        <Link href="#testimonials" className="nav-link hover:text-blue-400 dark:hover:text-blue-300 transition-colors">Testimonials</Link>
+        <Link href="#pricing" className="nav-link hover:text-blue-400 dark:hover:text-blue-300 transition-colors">Pricing</Link>
+        <Link href="#contact" className="nav-link hover:text-blue-400 dark:hover:text-blue-300 transition-colors">Contact</Link>
+        <button
+          onClick={() => setIsDarkMode(!isDarkMode)}
+          className="p-2 rounded-full hover:bg-blue-700 dark:hover:bg-gray-700 transition-colors"
+        >
+          {isDarkMode ? <SunIcon className="w-6 h-6" /> : <MoonIcon className="w-6 h-6" />}
+        </button>
       </nav>
 
       {/* Hero Section */}
-      <section
-        id="home"
-        className="min-h-screen flex items-center justify-center px-4"
-      >
-        <div className="text-center">
-          <h1 className="hero-text">
+      <section id="home" className="min-h-screen flex items-center justify-center px-4 relative">
+        <div className="text-center max-w-5xl mx-auto">
+          <h1 className="hero-text text-5xl md:text-7xl lg:text-8xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-blue-600 dark:from-blue-300 dark:to-blue-500">
             {Array.from('Noteify').map((char, index) => (
               <span key={index}>{char}</span>
             ))}
           </h1>
-          <p className="hero-subtitle text-xl md:text-2xl text-gray-700 mt-4 max-w-2xl mx-auto">
-            Capture your thoughts, organize your life, and boost productivity with
-            the ultimate note-taking experience.
+          <p className="hero-subtitle text-xl md:text-2xl lg:text-3xl text-gray-300 dark:text-gray-200 mt-6 max-w-3xl mx-auto">
+            Elevate your productivity with Noteify—crafted for seamless note-taking, collaboration, and organization.
           </p>
           <Link href="/login">
-            <button className="hero-button mt-8 px-8 bg-gradient-to-r from-[#8dd6db] to-[#8dd6db] py-3 text-white rounded-full shadow-lg hover:px-10 transition-all duration-300">
-              Get Started
+            <button className="hero-button mt-10 px-10 py-5 bg-blue-600 dark:bg-blue-500 text-white rounded-full shadow-2xl hover:bg-blue-700 dark:hover:bg-blue-600 hover:scale-105 transition-all duration-300 text-lg font-semibold">
+              Get Started Free
             </button>
           </Link>
         </div>
       </section>
 
       {/* Features Section */}
-      <section
-        id="features"
-        className="min-h-screen flex items-center justify-center py-20"
-        ref={featuresRef}
-      >
+      <section id="features" className="py-24 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm" ref={featuresRef}>
         <div className="container mx-auto px-4">
-          <h2 className="features-heading text-4xl font-bold text-center text-gray-800 mb-12">
-            Why Choose Noteify?
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            <div className="card">
-              <CloudIcon className="feature-icon w-12 h-12 text-indigo-600 mb-4" />
-              <h3 className="text-2xl font-semibold text-gray-800">
-                Seamless Sync
-              </h3>
-              <p className="text-gray-600 mt-2">
-                Effortlessly access your notes on any device—phones, tablets, or
-                desktops—with real-time cloud synchronization powered by secure
-                servers.
-              </p>
-              <a
-                href="#"
-                className="learn-more mt-4 inline-block text-indigo-600 hover:underline"
-              >
-                Learn More
-              </a>
-            </div>
-            <div className="card">
-              <PencilIcon className="feature-icon w-12 h-12 text-indigo-600 mb-4" />
-              <h3 className="text-2xl font-semibold text-gray-800">
-                Rich Formatting
-              </h3>
-              <p className="text-gray-600 mt-2">
-                Craft stunning notes with markdown support, embedded images, code
-                snippets, and customizable templates for every project.
-              </p>
-              <a
-                href="#"
-                className="learn-more mt-4 inline-block text-indigo-600 hover:underline"
-              >
-                Explore Formatting
-              </a>
-            </div>
-            <div className="card">
-              <MagnifyingGlassIcon className="feature-icon w-12 h-12 text-indigo-600 mb-4" />
-              <h3 className="text-2xl font-semibold text-gray-800">
-                Smart Search
-              </h3>
-              <p className="text-gray-600 mt-2">
-                Instantly locate any note with AI-driven search, including
-                handwriting recognition and tag-based filtering for ultimate
-                organization.
-              </p>
-              <a
-                href="#"
-                className="learn-more mt-4 inline-block text-indigo-600 hover:underline"
-              >
-                Try Search
-              </a>
-            </div>
-            <div className="card">
-              <LockClosedIcon className="feature-icon w-12 h-12 text-indigo-600 mb-4" />
-              <h3 className="text-2xl font-semibold text-gray-800">
-                Enhanced Security
-              </h3>
-              <p className="text-gray-600 mt-2">
-                Keep your notes safe with end-to-end encryption and two-factor
-                authentication for peace of mind.
-              </p>
-              <a
-                href="#"
-                className="learn-more mt-4 inline-block text-indigo-600 hover:underline"
-              >
-                Discover Security
-              </a>
-            </div>
-            <div className="card">
-              <ShareIcon className="feature-icon w-12 h-12 text-indigo-600 mb-4" />
-              <h3 className="text-2xl font-semibold text-gray-800">
-                Easy Sharing
-              </h3>
-              <p className="text-gray-600 mt-2">
-                Collaborate effortlessly by sharing notes or folders with team
-                members via secure links or direct invites.
-              </p>
-              <a
-                href="#"
-                className="learn-more mt-4 inline-block text-indigo-600 hover:underline"
-              >
-                Share Now
-              </a>
-            </div>
-            <div className="card">
-              <ClockIcon className="feature-icon w-12 h-12 text-indigo-600 mb-4" />
-              <h3 className="text-2xl font-semibold text-gray-800">
-                Version History
-              </h3>
-              <p className="text-gray-600 mt-2">
-                Track changes and restore previous versions of your notes with a
-                comprehensive version history feature.
-              </p>
-              <a
-                href="#"
-                className="learn-more mt-4 inline-block text-indigo-600 hover:underline"
-              >
-                Explore Versions
-              </a>
-            </div>
+          <h2 className="features-heading text-5xl md:text-6xl font-bold text-center text-gray-800 dark:text-gray-100 mb-20">Why Choose Noteify</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+            {[
+              { icon: CloudIcon, title: 'Seamless Sync', desc: 'Sync notes across all devices in real-time with secure cloud technology.' },
+              { icon: PencilIcon, title: 'Rich Formatting', desc: 'Craft stunning notes with markdown, media embeds, and custom templates.' },
+              { icon: MagnifyingGlassIcon, title: 'Smart Search', desc: 'Locate notes instantly with AI-driven search and tag-based filtering.' },
+              { icon: LockClosedIcon, title: 'Robust Security', desc: 'Ensure data safety with end-to-end encryption and 2FA.' },
+              { icon: ShareIcon, title: 'Easy Collaboration', desc: 'Share notes and folders securely with team members.' },
+              { icon: ClockIcon, title: 'Version Control', desc: 'Track and revert changes with comprehensive version history.' },
+            ].map((feature, index) => (
+              <div key={index} className="card bg-white dark:bg-gray-900 rounded-3xl shadow-lg p-8 hover:shadow-2xl transition-all duration-300">
+                <feature.icon className="feature-icon w-14 h-14 text-blue-500 dark:text-blue-400 mb-6" />
+                <h3 className="text-3xl font-semibold text-gray-800 dark:text-gray-100">{feature.title}</h3>
+                <p className="text-gray-600 dark:text-gray-300 mt-3">{feature.desc}</p>
+                <Link href="#" className="learn-more mt-6 inline-block text-blue-500 dark:text-blue-400 hover:text-blue-600 dark:hover:text-blue-300 hover:underline font-medium">
+                  Learn More
+                </Link>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Testimonials Section */}
+      <section id="testimonials" className="py-24 bg-blue-50 dark:bg-gray-700" ref={testimonialsRef}>
+        <div className="container mx-auto px-4">
+          <h2 className="testimonials-heading text-5xl md:text-6xl font-bold text-center text-gray-800 dark:text-gray-100 mb-20">Loved by Our Users</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+            {[
+              { name: 'Sarah M.', role: 'Designer', quote: 'Noteify revolutionized my workflow. The formatting and sync features are unmatched!' },
+              { name: 'James T.', role: 'Developer', quote: 'Smart search and version history make Noteify a must-have for coders.' },
+              { name: 'Emily R.', role: 'Team Lead', quote: 'Collaboration is effortless with Noteify’s secure sharing tools.' },
+            ].map((testimonial, index) => (
+              <div key={index} className="testimonial-card bg-white dark:bg-gray-900 rounded-3xl shadow-lg p-8 text-center">
+                <div className="flex justify-center mb-4">
+                  {[...Array(5)].map((_, i) => (
+                    <StarIcon key={i} className="w-6 h-6 text-yellow-400" />
+                  ))}
+                </div>
+                <p className="text-gray-600 dark:text-gray-300 italic text-lg">"{testimonial.quote}"</p>
+                <p className="mt-6 font-semibold text-gray-800 dark:text-gray-100 text-xl">{testimonial.name}</p>
+                <p className="text-gray-500 dark:text-gray-400">{testimonial.role}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
       {/* Pricing Section */}
-      <section
-        id="pricing"
-        className="min-h-screen flex items-center justify-center py-20"
-        ref={pricingRef}
-      >
+      <section id="pricing" className="py-24 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm" ref={pricingRef}>
         <div className="container mx-auto px-4">
-          <h2 className="pricing-heading text-4xl font-bold text-center text-gray-800 mb-12">
-            Pricing Plans
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="pricing-card">
-              <DocumentTextIcon className="pricing-icon w-12 h-12 text-[#8dd6db] mb-4" />
-              <h3 className="text-2xl font-semibold text-gray-800">Free</h3>
-              <p className="text-3xl font-bold text-[#8dd6db] mt-4">
-                $0<span className="text-base text-gray-600">/mo</span>
-              </p>
-              <p className="text-gray-600 mt-2">
-                Perfect for casual users who need basic note-taking features.
-              </p>
-              <ul className="mt-4 text-gray-600 space-y-2">
-                <li>Basic note-taking with text support</li>
-                <li>5GB cloud storage</li>
-                <li>Access to community forums</li>
-                <li>Sync across 2 devices</li>
-              </ul>
-              <button className="choose-plan mt-6 px-6 py-2 bg-[#8dd6db] text-white rounded-full hover:px-7 transition-all duration-300">
-                Choose Plan
-              </button>
-            </div>
-            <div className="pricing-card relative">
-              <div className="popular-badge absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-[#8dd6db] text-white text-sm font-semibold px-4 py-1 rounded-full">
-                Most Popular
+          <h2 className="pricing-heading text-5xl md:text-6xl font-bold text-center text-gray-800 dark:text-gray-100 mb-20">Find Your Perfect Plan</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
+            {[
+              {
+                icon: DocumentTextIcon,
+                title: 'Free',
+                price: '$0',
+                desc: 'Great for individuals exploring note-taking.',
+                features: ['Basic note-taking', '5GB storage', 'Sync across 2 devices', 'Community support'],
+              },
+              {
+                icon: UserGroupIcon,
+                title: 'Pro',
+                price: '$9',
+                desc: 'Perfect for professionals needing advanced tools.',
+                features: ['Rich formatting', '50GB storage', 'Sync across 5 devices', 'Offline access'],
+                popular: true,
+              },
+              {
+                icon: ShieldCheckIcon,
+                title: 'Team',
+                price: '$19',
+                desc: 'Built for teams with collaboration needs.',
+                features: ['Real-time collaboration', 'Unlimited storage', '24/7 support', 'Advanced security'],
+              },
+            ].map((plan, index) => (
+              <div key={index} className="pricing-card bg-white dark:bg-gray-900 rounded-3xl shadow-lg p-8 relative hover:shadow-2xl transition-all duration-300">
+                {plan.popular && (
+                  <div className="popular-badge absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-blue-500 dark:bg-blue-400 text-white text-sm font-semibold px-6 py-2 rounded-full">
+                    Most Popular
+                  </div>
+                )}
+                <plan.icon className="pricing-icon w-14 h-14 text-blue-500 dark:text-blue-400 mb-6" />
+                <h3 className="text-3xl font-semibold text-gray-800 dark:text-gray-100">{plan.title}</h3>
+                <p className="text-4xl font-bold text-blue-500 dark:text-blue-400 mt-4">
+                  {plan.price}<span className="text-lg text-gray-600 dark:text-gray-300">/mo</span>
+                </p>
+                <p className="text-gray-600 dark:text-gray-300 mt-3">{plan.desc}</p>
+                <ul className="mt-6 text-gray-600 dark:text-gray-300 space-y-3">
+                  {plan.features.map((feature, i) => (
+                    <li key={i} className="flex items-center">
+                      <svg className="w-5 h-5 text-blue-500 dark:text-blue-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                      </svg>
+                      {feature}
+                    </li>
+                  ))}
+                </ul>
+                <button className="choose-plan mt-8 px-8 py-4 bg-blue-600 dark:bg-blue-500 text-white rounded-full hover:bg-blue-700 dark:hover:bg-blue-600 hover:px-9 transition-all duration-300 text-lg font-semibold">
+                  Choose Plan
+                </button>
               </div>
-              <UserGroupIcon className="pricing-icon w-12 h-12 text-[#8dd6db] mb-4" />
-              <h3 className="text-2xl font-semibold text-gray-800">Pro</h3>
-              <p className="text-3xl font-bold text-[#8dd6db] mt-4">
-                $9<span className="text-base text-gray-600">/mo</span>
-              </p>
-              <p className="text-gray-600 mt-2">
-                Ideal for professionals needing advanced tools and storage.
-              </p>
-              <ul className="mt-4 text-gray-600 space-y-2">
-                <li>Advanced markdown and rich media</li>
-                <li>50GB cloud storage</li>
-                <li>Sync across 5 devices</li>
-                <li>Offline mode access</li>
-              </ul>
-              <button className="choose-plan mt-6 px-6 py-2 bg-[#8dd6db] text-white rounded-full hover:px-7 transition-all duration-300">
-                Choose Plan
-              </button>
-            </div>
-            <div className="pricing-card">
-              <ShieldCheckIcon className="pricing-icon w-12 h-12 text-[#8dd6db] mb-4" />
-              <h3 className="text-2xl font-semibold text-gray-800">Team</h3>
-              <p className="text-3xl font-bold text-[#8dd6db] mt-4">
-                $19<span className="text-base text-gray-600">/mo</span>
-              </p>
-              <p className="text-gray-600 mt-2">
-                Built for teams with collaboration and security needs.
-              </p>
-              <ul className="mt-4 text-gray-600 space-y-2">
-                <li>Real-time collaboration tools</li>
-                <li>Unlimited cloud storage</li>
-                <li>24/7 dedicated support</li>
-                <li>Sync across unlimited devices</li>
-                <li>Advanced security features</li>
-              </ul>
-              <button className="choose-plan mt-6 px-6 py-2 bg-[#8dd6db] text-white rounded-full hover:px-7 transition-all duration-300">
-                Choose Plan
-              </button>
-            </div>
+            ))}
           </div>
         </div>
       </section>
+
+      {/* CTA Banner */}
+      <section id="cta" className="py-24 bg-blue-600 dark:bg-blue-800 text-white" ref={ctaRef}>
+        <div className="container mx-auto px-4 text-center">
+          <h2 className="cta-banner text-4xl md:text-5xl font-bold mb-6">Ready to Transform Your Productivity?</h2>
+          <p className="text-xl md:text-2xl text-gray-100 mb-8 max-w-3xl mx-auto">
+            Join thousands of users who trust Noteify to organize their ideas and collaborate seamlessly.
+          </p>
+          <Link href="/login">
+            <button className="px-10 py-5 bg-white text-blue-600 dark:text-blue-800 rounded-full shadow-xl hover:bg-gray-100 hover:scale-105 transition-all duration-300 text-lg font-semibold">
+              Start Now
+            </button>
+          </Link>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="footer py-16 bg-blue-900 dark:bg-gray-900 text-white">
+        <div className="container mx-auto px-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-12">
+            <div>
+              <h3 className="text-3xl font-bold">Noteify</h3>
+              <p className="mt-4 text-gray-300">Your ultimate platform for note-taking and team collaboration.</p>
+            </div>
+            <div>
+              <h3 className="text-xl font-semibold">Product</h3>
+              <ul className="mt-4 space-y-3">
+                <li><Link href="#features" className="hover:text-blue-300 transition-colors">Features</Link></li>
+                <li><Link href="#pricing" className="hover:text-blue-300 transition-colors">Pricing</Link></li>
+                <li><Link href="#testimonials" className="hover:text-blue-300 transition-colors">Testimonials</Link></li>
+              </ul>
+            </div>
+            <div>
+              <h3 className="text-xl font-semibold">Company</h3>
+              <ul className="mt-4 space-y-3">
+                <li><Link href="#about" className="hover:text-blue-300 transition-colors">About</Link></li>
+                <li><Link href="#contact" className="hover:text-blue-300 transition-colors">Contact</Link></li>
+                <li><Link href="#careers" className="hover:text-blue-300 transition-colors">Careers</Link></li>
+              </ul>
+            </div>
+            <div>
+              <h3 className="text-xl font-semibold">Support</h3>
+              <ul className="mt-4 space-y-3">
+                <li><a href="mailto:support@noteify.com" className="hover:text-blue-300 transition-colors">support@noteify.com</a></li>
+                <li><a href="tel:+18001234567" className="hover:text-blue-300 transition-colors">+1 (800) 123-4567</a></li>
+                <li><Link href="#faq" className="hover:text-blue-300 transition-colors">FAQ</Link></li>
+              </ul>
+            </div>
+          </div>
+          <p className="text-center text-gray-400 mt-12">© 2025 Noteify. All rights reserved.</p>
+        </div>
+      </footer>
     </div>
   );
 }

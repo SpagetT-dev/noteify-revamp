@@ -14,8 +14,8 @@ import { useDebounce } from 'use-debounce';
 import { useAuth } from '../contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { db } from '../lib/firebase';
-import { collection, addDoc, getDocs, updateDoc, deleteDoc, doc, query, where } from 'firebase/firestore';
+import { db } from '../lib/firebase'; // Use centralized firestore.js
+import { collection, addDoc, getDocs, updateDoc, deleteDoc, doc, query, where, getDoc, setDoc } from 'firebase/firestore';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 
@@ -41,6 +41,65 @@ export default function NotesApp() {
   const autoSaveTimeoutRef = useRef(null);
   const { user, loading } = useAuth();
   const router = useRouter();
+
+  // Initialize theme
+  useEffect(() => {
+    const initializeTheme = async () => {
+      let savedTheme = localStorage.getItem('theme') || 'light';
+      console.log('Notes: Initial theme from localStorage:', savedTheme);
+
+      if (user) {
+        console.log('Notes: User UID:', user.uid);
+        try {
+          const userDocRef = doc(db, 'users', user.uid);
+          const userDoc = await getDoc(userDocRef);
+          console.log('Notes: User document exists:', userDoc.exists());
+          if (!userDoc.exists()) {
+            console.log('Notes: Creating user document for UID:', user.uid);
+            await setDoc(userDocRef, {
+              displayName: user.displayName || 'User',
+              theme: savedTheme,
+              createdAt: new Date().toISOString(),
+            });
+          } else if (userDoc.data().theme) {
+            savedTheme = userDoc.data().theme;
+            console.log('Notes: Theme from Firestore:', savedTheme);
+          }
+        } catch (error) {
+          console.error('Notes: Error fetching/creating theme from Firestore:', error);
+          toast.error('Failed to load theme preference.');
+        }
+      }
+
+      console.log('Notes: Applying theme:', savedTheme);
+      document.documentElement.setAttribute('data-theme', savedTheme);
+      document.documentElement.classList.remove('light', 'dark');
+      document.documentElement.classList.add(savedTheme);
+      console.log('Notes: DOM data-theme:', document.documentElement.getAttribute('data-theme'));
+      console.log('Notes: DOM classes:', document.documentElement.className);
+    };
+    if (!loading && user) {
+      initializeTheme();
+    }
+  }, [user, loading]);
+
+  // Listen for localStorage changes
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      if (e.key === 'theme') {
+        const newTheme = e.newValue || 'light';
+        console.log('Notes: Theme changed in localStorage:', newTheme);
+        document.documentElement.setAttribute('data-theme', newTheme);
+        document.documentElement.classList.remove('light', 'dark');
+        document.documentElement.classList.add(newTheme);
+        console.log('Notes: Updated DOM data-theme:', document.documentElement.getAttribute('data-theme'));
+        console.log('Notes: Updated DOM classes:', document.documentElement.className);
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
 
   // Tiptap Editor
   const editor = useEditor({
@@ -340,8 +399,8 @@ export default function NotesApp() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center flex-col">
-        <div className="text-gray-600 dark:text-gray-300 text-lg">Loading...</div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900 font-sans">
+        <div className="text-gray-600 dark:text-gray-300 text-lg font-semibold">Loading...</div>
       </div>
     );
   }
@@ -356,21 +415,24 @@ export default function NotesApp() {
           user-select: text;
         }
       `}</style>
-      <div className="flex flex-col min-h-screen bg-gradient-to-br from-blue-50 to-gray-50 dark:bg-gradient-to-br dark:from-gray-800 dark:to-gray-900 text-gray-900 dark:text-gray-100">
+      <div className="flex flex-col min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100 font-sans">
         <Toaster
           position="top-right"
           toastOptions={{
             duration: 2000,
             style: {
               background: '#fff',
-              color: '#333',
+              color: '#1f2937',
               borderRadius: '8px',
+            },
+            dark: {
+              background: '#1f2937',
+              color: '#f9fafb',
             },
           }}
         />
         <main className="flex-1">
           <div className="max-w-5xl mx-auto px-4 md:px-6 py-6">
-            {/* Header */}
             <motion.div
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -387,7 +449,7 @@ export default function NotesApp() {
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.9 }}
                   onClick={exportAllNotes}
-                  className="px-3 py-1 text-sm font-medium text-white bg-green-500 hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-500 rounded-lg"
+                  className="px-3 py-1 text-sm font-semibold text-white bg-green-500 hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-500 rounded-lg"
                   title="Export All Notes"
                 >
                   Export All
@@ -405,9 +467,7 @@ export default function NotesApp() {
               </div>
             </motion.div>
 
-            {/* Main Content */}
             <div className="bg-white dark:bg-gray-800 rounded-lg p-6">
-              {/* Notes List */}
               <AnimatePresence>
                 {showNotes && (
                   <motion.div
@@ -424,13 +484,13 @@ export default function NotesApp() {
                           placeholder="Search notes..."
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
-                          className="w-full p-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
+                          className="w-full p-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 text-gray-800 dark:text-gray-100"
                         />
                       </div>
                       <select
                         value={sortBy}
                         onChange={(e) => setSortBy(e.target.value)}
-                        className="p-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 focus:outline-none"
+                        className="p-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 focus:outline-none text-gray-800 dark:text-gray-100"
                       >
                         <option value="createdAt">Sort by Date Created</option>
                         <option value="title">Sort by Title</option>
@@ -442,7 +502,7 @@ export default function NotesApp() {
                         onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
                         className="p-2 rounded-lg bg-gray-200 dark:bg-gray-700"
                       >
-                        {sortOrder === 'asc' ? <SortAsc className="w-5 h-5" /> : <SortDesc className="w-5 h-5" />}
+                        {sortOrder === 'asc' ? <SortAsc className="w-5 h-5 text-gray-600 dark:text-gray-300" /> : <SortDesc className="w-5 h-5 text-gray-600 dark:text-gray-300" />}
                       </motion.button>
                     </div>
                     <div className="flex gap-2 mb-4 flex-wrap">
@@ -452,7 +512,7 @@ export default function NotesApp() {
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}
                           onClick={() => setCategory(cat === category ? '' : cat)}
-                          className={`px-3 py-1 rounded-full text-sm font-medium ${
+                          className={`px-3 py-1 rounded-full text-sm font-semibold ${
                             category === cat
                               ? 'bg-blue-500 text-white dark:bg-blue-600'
                               : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
@@ -469,7 +529,7 @@ export default function NotesApp() {
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}
                           onClick={() => setFilterTag(tag === filterTag ? '' : tag)}
-                          className={`px-3 py-1 rounded-full text-sm font-medium ${
+                          className={`px-3 py-1 rounded-full text-sm font-semibold ${
                             filterTag === tag
                               ? 'bg-purple-500 text-white dark:bg-purple-600'
                               : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
@@ -577,7 +637,7 @@ export default function NotesApp() {
                           disabled={currentPage === 1}
                           className="p-2 rounded-lg bg-gray-200 dark:bg-gray-700 disabled:opacity-50"
                         >
-                          <ChevronLeft className="w-5 h-5" />
+                          <ChevronLeft className="w-5 h-5 text-gray-600 dark:text-gray-300" />
                         </motion.button>
                         <span className="text-sm text-gray-600 dark:text-gray-400">
                           Page {currentPage} of {Math.ceil(filteredNotes.length / notesPerPage)}
@@ -589,7 +649,7 @@ export default function NotesApp() {
                           disabled={currentPage === Math.ceil(filteredNotes.length / notesPerPage)}
                           className="p-2 rounded-lg bg-gray-200 dark:bg-gray-700 disabled:opacity-50"
                         >
-                          <ChevronRight className="w-5 h-5" />
+                          <ChevronRight className="w-5 h-5 text-gray-600 dark:text-gray-300" />
                         </motion.button>
                       </div>
                     )}
@@ -597,7 +657,6 @@ export default function NotesApp() {
                 )}
               </AnimatePresence>
 
-              {/* Editor */}
               <AnimatePresence>
                 {!showNotes && (
                   <motion.div
@@ -612,7 +671,7 @@ export default function NotesApp() {
                         placeholder="Note Title"
                         value={title}
                         onChange={(e) => setTitle(e.target.value)}
-                        className="w-full text-xl font-semibold bg-transparent focus:outline-none placeholder-gray-300 dark:placeholder-gray-500"
+                        className="w-full text-xl font-bold bg-transparent focus:outline-none placeholder-gray-300 dark:placeholder-gray-500 text-gray-800 dark:text-gray-100"
                       />
                       <div className="flex items-center gap-4">
                         {isAutoSaving && (
@@ -636,14 +695,14 @@ export default function NotesApp() {
                           type="date"
                           value={date}
                           onChange={(e) => setDate(e.target.value)}
-                          className="p-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
+                          className="p-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 text-gray-800 dark:text-gray-100"
                         />
                       </div>
                       <div className="flex items-center gap-2">
                         <select
                           value={category}
                           onChange={(e) => setCategory(e.target.value)}
-                          className="p-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
+                          className="p-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 text-gray-800 dark:text-gray-100"
                         >
                           <option value="">Category</option>
                           {categories.map(cat => (
@@ -659,7 +718,7 @@ export default function NotesApp() {
                           value={tagInput}
                           onChange={(e) => setTagInput(e.target.value)}
                           onKeyDown={addTag}
-                          className="p-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
+                          className="p-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 text-gray-800 dark:text-gray-100"
                         />
                       </div>
                     </div>
@@ -687,7 +746,7 @@ export default function NotesApp() {
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}
                           onClick={() => applyTemplate('lecture')}
-                          className="px-3 py-1 text-sm font-medium text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg"
+                          className="px-3 py-1 text-sm font-semibold text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg"
                         >
                           Lecture
                         </motion.button>
@@ -695,19 +754,21 @@ export default function NotesApp() {
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}
                           onClick={() => applyTemplate('assignment')}
-                          className="px-3 py-1 text-sm font-medium text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg"
+                          className="px-3 py-1 text-sm font-semibold text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg"
                         >
                           Assignment
                         </motion.button>
                       </div>
                     </div>
-                    <EditorContent editor={editor} className="tiptap-editor h-64 border border-gray-200 dark:border-gray-600 rounded-lg p-2 bg-white dark:bg-gray-700" />
+                    <EditorContent editor={editor} className="tiptap-editor h-64 border border-gray-200 dark:border-gray-600 rounded-lg p-2 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100" />
                     <div className="flex justify-end gap-2 mt-4">
                       <motion.button
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                         onClick={() => { resetForm(); setShowNotes(true); }}
-                        className="px-4 py-2 text-gray-600 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg"
+                        className="px-4 py-2 text-gray-600 dark:text-gray-300 bg-gray-200 dark:bg-gray-700
+
+ hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg font-semibold"
                       >
                         Back
                       </motion.button>
@@ -715,7 +776,7 @@ export default function NotesApp() {
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                         onClick={activeNote ? updateNote : addNote}
-                        className="px-4 py-2 text-white bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-500 rounded-lg flex items-center gap-2"
+                        className="px-4 py-2 text-white bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-500 rounded-lg flex items-center gap-2 font-semibold"
                       >
                         {activeNote ? (
                           <>
@@ -733,7 +794,6 @@ export default function NotesApp() {
               </AnimatePresence>
             </div>
 
-            {/* Preview Modal */}
             <AnimatePresence>
               {previewNote && (
                 <motion.div
@@ -750,8 +810,8 @@ export default function NotesApp() {
                     className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto"
                     onClick={e => e.stopPropagation()}
                   >
-                    <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-4">{previewNote.title}</h2>
-                    <div className="prose dark:prose-invert" dangerouslySetInnerHTML={{ __html: previewNote.content }} />
+                    <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4">{previewNote.title}</h2>
+                    <div className="prose dark:prose-invert text-gray-800 dark:text-gray-100" dangerouslySetInnerHTML={{ __html: previewNote.content }} />
                     <div className="flex gap-2 mt-4">
                       {previewNote.tags.map(tag => (
                         <span key={tag} className="text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300 px-2 py-1 rounded-full">
@@ -766,7 +826,7 @@ export default function NotesApp() {
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                         onClick={() => setPreviewNote(null)}
-                        className="px-4 py-2 text-gray-600 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg"
+                        className="px-4 py-2 text-gray-600 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg font-semibold"
                       >
                         Close
                       </motion.button>
@@ -774,7 +834,7 @@ export default function NotesApp() {
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                         onClick={() => { editNote(previewNote); setPreviewNote(null); }}
-                        className="px-4 py-2 text-white bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-500 rounded-lg"
+                        className="px-4 py-2 text-white bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-500 rounded-lg font-semibold"
                       >
                         Edit
                       </motion.button>
@@ -784,7 +844,6 @@ export default function NotesApp() {
               )}
             </AnimatePresence>
 
-            {/* Floating Add Button */}
             <motion.button
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
@@ -799,7 +858,6 @@ export default function NotesApp() {
           </div>
         </main>
 
-        {/* Footer */}
         <footer className="bg-gray-100 dark:bg-gray-900 py-4 mt-auto">
           <div className="max-w-5xl mx-auto px-4 md:px-6 text-center">
             <p className="text-gray-600 dark:text-gray-400 text-sm font-bold">
