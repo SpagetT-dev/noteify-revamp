@@ -22,6 +22,7 @@
     "firebase": "^11.7.3",
     "firebase-admin": "^13.4.0",
     "framer-motion": "^12.11.3",
+    "google-auth-library": "^9.15.1",
     "gsap": "^3.13.0",
     "jszip": "^3.10.1",
     "lucide-react": "^0.503.0",
