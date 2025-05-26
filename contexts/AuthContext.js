@@ -1,9 +1,8 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState } from 'react';
-import { auth } from '../lib/firebase';
-import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, updateProfile, sendEmailVerification } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
+import { supabase } from '../lib/supabase';
 
 const AuthContext = createContext({});
 
@@ -13,21 +12,27 @@ export const AuthProvider = ({ children }) => {
   const router = useRouter();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      console.log('Auth state changed:', user ? { uid: user.uid, emailVerified: user.emailVerified } : 'No user');
-      setUser(user);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session) {
+        setUser(session.user);
+      } else {
+        setUser(null);
+      }
       setLoading(false);
     });
-    return () => unsubscribe();
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const login = async (email, password) => {
     try {
-      console.log('Calling signInWithEmailAndPassword:', { email });
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      if (!userCredential.user.emailVerified) {
-        throw new Error('Please verify your email before logging in.');
-      }
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+      
+      if (error) throw error;
+      
       router.push('/notes');
     } catch (error) {
       console.error('Login error:', error.message);
@@ -37,34 +42,41 @@ export const AuthProvider = ({ children }) => {
 
   const signup = async (email, password, displayName) => {
     try {
-      console.log('Calling createUserWithEmailAndPassword:', { email, displayName });
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      await updateProfile(userCredential.user, { displayName });
-      await sendEmailVerification(userCredential.user);
-      console.log('Verification email sent to:', email);
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            display_name: displayName
+          }
+        }
+      });
+      
+      if (error) throw error;
+
+      // Create profile in profiles table
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .insert([
+          {
+            id: data.user.id,
+            display_name: displayName,
+            theme: 'light'
+          }
+        ]);
+
+      if (profileError) throw profileError;
+      
     } catch (error) {
       console.error('Signup error:', error.message);
       throw error;
     }
   };
 
-  const resendVerificationEmail = async () => {
-    try {
-      if (auth.currentUser) {
-        await sendEmailVerification(auth.currentUser);
-        console.log('Verification email resent to:', auth.currentUser.email);
-      } else {
-        throw new Error('No user is signed in.');
-      }
-    } catch (error) {
-      console.error('Resend verification error:', error.message);
-      throw error;
-    }
-  };
-
   const logout = async () => {
     try {
-      await signOut(auth);
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
       router.push('/login');
     } catch (error) {
       console.error('Logout error:', error.message);
@@ -74,8 +86,18 @@ export const AuthProvider = ({ children }) => {
 
   const updateUserProfile = async (displayName) => {
     try {
-      await updateProfile(auth.currentUser, { displayName });
-      setUser({ ...auth.currentUser });
+      const { data: { user: currentUser }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError) throw userError;
+
+      const { error } = await supabase
+        .from('profiles')
+        .update({ display_name: displayName })
+        .eq('id', currentUser.id);
+
+      if (error) throw error;
+
+      setUser({ ...currentUser, user_metadata: { ...currentUser.user_metadata, display_name: displayName } });
     } catch (error) {
       console.error('Update profile error:', error.message);
       throw error;
@@ -83,7 +105,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, signup, logout, updateUserProfile, resendVerificationEmail }}>
+    <AuthContext.Provider value={{ user, loading, login, signup, logout, updateUserProfile }}>
       {!loading && children}
     </AuthContext.Provider>
   );
